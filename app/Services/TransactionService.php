@@ -10,6 +10,7 @@ use App\Models\Transaction;
 use App\Models\TransactionItem;
 use App\Models\TransactionPayment;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -38,6 +39,7 @@ class TransactionService
         string $paymentMethod,
         int $amountTendered,
         int $discount = 0,
+        ?string $clientToken = null,
     ): Transaction {
         if ($cart === []) {
             throw new RuntimeException('Keranjang kosong.');
@@ -56,105 +58,143 @@ class TransactionService
             $discount = 0;
         }
 
-        return DB::transaction(function () use ($user, $cart, $customerId, $paymentMethod, $amountTendered, $discount): Transaction {
-            // Hitung ulang total di backend — jangan percaya frontend (AGENTS.md §3).
-            $subtotal = 0;
-            $items = [];
+        // --- Layer 4 Data Guard — idempotency -------------------------------
+        // Klik "Bayar" dua kali (atau retry jaringan) mengirim token yang sama.
+        // Transaksi dengan token itu sudah ada → jangan diproses ulang.
+        if ($clientToken !== null && ($existing = $this->findByClientToken($clientToken)) !== null) {
+            return $existing;
+        }
 
-            foreach ($cart as $item) {
-                $qty = (int) ($item['qty'] ?? 0);
+        try {
+            return DB::transaction(function () use ($user, $cart, $customerId, $paymentMethod, $amountTendered, $discount, $clientToken): Transaction {
+                // Hitung ulang total di backend — jangan percaya frontend (AGENTS.md §3).
+                $subtotal = 0;
+                $items = [];
 
-                // Layer 1: qty harus bilangan bulat positif — tolak qty negatif
-                // yang bisa membalik arah potong stok menjadi penambahan.
-                if ($qty < 1) {
-                    throw new RuntimeException('Jumlah item tidak valid.');
+                foreach ($cart as $item) {
+                    $qty = (int) ($item['qty'] ?? 0);
+
+                    // Layer 1: qty harus bilangan bulat positif — tolak qty negatif
+                    // yang bisa membalik arah potong stok menjadi penambahan.
+                    if ($qty < 1) {
+                        throw new RuntimeException('Jumlah item tidak valid.');
+                    }
+
+                    // Lock baris variant agar aman dari race condition dua kasir (ADR-0003).
+                    $variant = ProductVariant::query()
+                        ->whereKey($item['id'])
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    if ($variant->stock < $qty) {
+                        throw new RuntimeException("Stok \"{$variant->display_name}\" tidak mencukupi.");
+                    }
+
+                    $lineSubtotal = $variant->price * $qty;
+                    $subtotal += $lineSubtotal;
+
+                    $items[] = [
+                        'variant' => $variant,
+                        'price' => $variant->price,
+                        'cost' => $variant->cost,
+                        'qty' => $qty,
+                        'subtotal' => $lineSubtotal,
+                    ];
                 }
 
-                // Lock baris variant agar aman dari race condition dua kasir (ADR-0003).
-                $variant = ProductVariant::query()
-                    ->whereKey($item['id'])
-                    ->lockForUpdate()
-                    ->firstOrFail();
+                // Layer 1: batasi diskon maksimal subtotal (total tidak pernah negatif).
+                $discount = min($discount, $subtotal);
 
-                if ($variant->stock < $qty) {
-                    throw new RuntimeException("Stok \"{$variant->display_name}\" tidak mencukupi.");
+                $tax = (int) round($subtotal * 0.11); // PPN 11%
+                $total = max(0, $subtotal + $tax - $discount);
+
+                if ($paymentMethod === TransactionPayment::METHOD_CASH && $amountTendered < $total) {
+                    throw new RuntimeException('Uang diterima kurang dari total belanja.');
                 }
 
-                $lineSubtotal = $variant->price * $qty;
-                $subtotal += $lineSubtotal;
-
-                $items[] = [
-                    'variant' => $variant,
-                    'price' => $variant->price,
-                    'cost' => $variant->cost,
-                    'qty' => $qty,
-                    'subtotal' => $lineSubtotal,
-                ];
-            }
-
-            // Layer 1: batasi diskon maksimal subtotal (total tidak pernah negatif).
-            $discount = min($discount, $subtotal);
-
-            $tax = (int) round($subtotal * 0.11); // PPN 11%
-            $total = max(0, $subtotal + $tax - $discount);
-
-            if ($paymentMethod === TransactionPayment::METHOD_CASH && $amountTendered < $total) {
-                throw new RuntimeException('Uang diterima kurang dari total belanja.');
-            }
-
-            $transaction = Transaction::create([
-                'invoice_no' => $this->generateInvoiceNo(),
-                'customer_id' => $customerId,
-                'user_id' => $user->id,
-                'shift_id' => $user->currentShift?->id,
-                'subtotal' => $subtotal,
-                'discount' => $discount,
-                'tax' => $tax,
-                'total' => $total,
-                'status' => Transaction::STATUS_COMPLETED,
-            ]);
-
-            foreach ($items as $line) {
-                TransactionItem::create([
-                    'transaction_id' => $transaction->id,
-                    'variant_id' => $line['variant']->id,
-                    'product_name' => $line['variant']->display_name, // snapshot
-                    'price' => $line['price'],
-                    'cost' => $line['cost'],
-                    'qty' => $line['qty'],
-                    'subtotal' => $line['subtotal'],
+                $transaction = Transaction::create([
+                    'invoice_no' => $this->generateInvoiceNo(),
+                    'client_token' => $clientToken,
+                    'customer_id' => $customerId,
+                    'user_id' => $user->id,
+                    'shift_id' => $user->currentShift?->id,
+                    'subtotal' => $subtotal,
+                    'discount' => $discount,
+                    'tax' => $tax,
+                    'total' => $total,
+                    'status' => Transaction::STATUS_COMPLETED,
                 ]);
 
-                $line['variant']->decrement('stock', $line['qty']);
+                foreach ($items as $line) {
+                    TransactionItem::create([
+                        'transaction_id' => $transaction->id,
+                        'variant_id' => $line['variant']->id,
+                        'product_name' => $line['variant']->display_name, // snapshot
+                        'price' => $line['price'],
+                        'cost' => $line['cost'],
+                        'qty' => $line['qty'],
+                        'subtotal' => $line['subtotal'],
+                    ]);
+
+                    $line['variant']->decrement('stock', $line['qty']);
+                }
+
+                TransactionPayment::create([
+                    'transaction_id' => $transaction->id,
+                    'method' => $paymentMethod,
+                    'amount' => $total,
+                    'reference_no' => $paymentMethod === TransactionPayment::METHOD_QRIS
+                        ? 'QRIS-'.Str::upper(Str::random(8))
+                        : null,
+                ]);
+
+                // Update total sales shift berjalan.
+                $user->currentShift?->increment('total_sales', $total);
+
+                return $transaction->load(['items', 'payments', 'customer']);
+            });
+        } catch (QueryException $e) {
+            // Balapan dua request dengan token sama: UNIQUE(client_token) menang
+            // di database. Transaksi pertama menang, yang kedua dikembalikan apa
+            // adanya (tanpa memotong stok dua kali).
+            if ($clientToken !== null && ($existing = $this->findByClientToken($clientToken)) !== null) {
+                return $existing;
             }
 
-            TransactionPayment::create([
-                'transaction_id' => $transaction->id,
-                'method' => $paymentMethod,
-                'amount' => $total,
-                'reference_no' => $paymentMethod === TransactionPayment::METHOD_QRIS
-                    ? 'QRIS-'.Str::upper(Str::random(8))
-                    : null,
-            ]);
+            throw $e;
+        }
+    }
 
-            // Update total sales shift berjalan.
-            $user->currentShift?->increment('total_sales', $total);
-
-            return $transaction->load(['items', 'payments', 'customer']);
-        });
+    /**
+     * Cari transaksi berdasarkan token idempotency (null bila tidak ada).
+     */
+    private function findByClientToken(string $clientToken): ?Transaction
+    {
+        return Transaction::query()
+            ->where('client_token', $clientToken)
+            ->with(['items', 'payments', 'customer'])
+            ->first();
     }
 
     /**
      * Void transaksi: tandai status & kembalikan stok (AGENTS.md §7).
+     *
+     * Baris transaksi dikunci `lockForUpdate` — dua klik void bersamaan tidak
+     * bisa sama-sama lolos cek status (stok tidak terkembalikan dua kali).
      */
     public function voidTransaction(Transaction $transaction, User $by, ?string $reason = null): Transaction
     {
-        if ($transaction->isVoided()) {
-            throw new RuntimeException('Transaksi sudah pernah di-void.');
-        }
-
         return DB::transaction(function () use ($transaction, $by, $reason): Transaction {
-            foreach ($transaction->items as $item) {
+            $locked = Transaction::query()
+                ->whereKey($transaction->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($locked->isVoided()) {
+                throw new RuntimeException('Transaksi sudah pernah di-void.');
+            }
+
+            foreach ($locked->items as $item) {
                 if ($item->variant_id === null) {
                     continue;
                 }
@@ -166,17 +206,17 @@ class TransactionService
                     ?->increment('stock', $item->qty);
             }
 
-            $transaction->update([
+            $locked->update([
                 'status' => Transaction::STATUS_VOIDED,
                 'voided_at' => now(),
                 'voided_by' => $by->id,
-                'notes' => $reason ?? $transaction->notes,
+                'notes' => $reason ?? $locked->notes,
             ]);
 
             // Kurangi total sales shift jika shift masih terbuka.
-            $transaction->shift?->decrement('total_sales', $transaction->total);
+            $locked->shift?->decrement('total_sales', $locked->total);
 
-            return $transaction->refresh();
+            return $locked->refresh();
         });
     }
 
@@ -224,17 +264,32 @@ class TransactionService
 
     /**
      * Format nomor invoice: INV-YYYYMMDD-XXXX (urut per hari).
+     *
+     * Layer 4 Data Guard — baca + tulis counter dalam satu kunci `lockForUpdate`,
+     * sehingga dua kasir yang checkout bersamaan tidak pernah mendapat nomor sama.
      */
     private function generateInvoiceNo(): string
     {
-        $prefix = 'INV-'.now()->format('Ymd').'-';
-        $lastNumber = Transaction::query()
-            ->where('invoice_no', 'like', $prefix.'%')
-            ->max('invoice_no');
+        $day = now()->format('Ymd');
+        $prefix = 'INV-'.$day.'-';
 
-        $sequence = $lastNumber !== null
-            ? ((int) substr($lastNumber, -4)) + 1
-            : 1;
+        // Buat baris counter hari ini bila belum ada (insertOrIgnore = idempotent).
+        DB::table('invoice_counters')->insertOrIgnore([
+            'day' => $day,
+            'sequence' => 0,
+        ]);
+
+        // Kunci baris counter → serialisasi pembacaan nomor antar transaksi.
+        $sequence = (int) DB::table('invoice_counters')
+            ->where('day', $day)
+            ->lockForUpdate()
+            ->value('sequence');
+
+        $sequence++;
+
+        DB::table('invoice_counters')
+            ->where('day', $day)
+            ->update(['sequence' => $sequence]);
 
         return $prefix.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
     }

@@ -15,7 +15,7 @@ class Transaction extends Model
     public const STATUS_VOIDED = 'voided';
 
     protected $fillable = [
-        'invoice_no', 'customer_id', 'user_id', 'shift_id', 'subtotal', 'discount',
+        'invoice_no', 'client_token', 'customer_id', 'user_id', 'shift_id', 'subtotal', 'discount',
         'tax', 'total', 'status', 'notes', 'voided_at', 'voided_by',
     ];
 

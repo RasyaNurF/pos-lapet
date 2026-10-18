@@ -12,6 +12,7 @@ use App\Models\SuspendedTransaction;
 use App\Models\TransactionPayment;
 use App\Services\TransactionService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -50,6 +51,17 @@ class PosTerminal extends Component
     public int $discount = 0;
 
     public string $qris_reference = '';
+
+    /**
+     * Token idempotency per aksi "Bayar" (Layer 4 Data Guard).
+     *
+     * Dibuat saat panel bayar dibuka dan dikirim ke backend pada checkout.
+     * Klik bayar ganda (double-tap / retry jaringan) mengirim token sama sehingga
+     * transaksi tidak pernah tercatat — maupun memotong stok — dua kali.
+     * #[Locked] agar klien tidak bisa menggantinya untuk membatalkan proteksi.
+     */
+    #[Locked]
+    public string $checkout_token = '';
 
     public bool $showPaymentPanel = false;
 
@@ -169,6 +181,7 @@ class PosTerminal extends Component
         $this->customer_id = null;
         $this->amount_tendered = 0;
         $this->qris_reference = '';
+        $this->checkout_token = '';
         $this->showPaymentPanel = false;
         $this->resetComputedCache();
         $this->resetPage();
@@ -228,6 +241,9 @@ class PosTerminal extends Component
             $this->resetComputedCache();
         }
 
+        // Token baru untuk setiap sesi pembayaran (idempotency).
+        $this->checkout_token = (string) Str::uuid();
+
         $this->showPaymentPanel = true;
     }
 
@@ -270,6 +286,12 @@ class PosTerminal extends Component
         ]);
 
         try {
+            // Idempotency: pakai token sesi bayar; bila kosong (mis. dipanggil
+            // tanpa panel), buat baru — dua klik pada sesi sama tetap satu transaksi.
+            if ($this->checkout_token === '') {
+                $this->checkout_token = (string) Str::uuid();
+            }
+
             $transaction = $service->processTransaction(
                 user: auth()->user(),
                 cart: $this->cart,
@@ -277,6 +299,7 @@ class PosTerminal extends Component
                 paymentMethod: $this->payment_method,
                 amountTendered: $this->amount_tendered,
                 discount: $this->discount,
+                clientToken: $this->checkout_token,
             );
 
             $this->resetCart();
