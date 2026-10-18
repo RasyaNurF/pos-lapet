@@ -25,26 +25,26 @@
     @foreach($transaction->items as $item)
         <div>{{ $item->product_name }}</div>
         <div class="flex justify-between">
-            <span>{{ $item->qty }} x Rp {{ number_format($item->price, 0, ',', '.') }}</span>
-            <span>Rp {{ number_format($item->subtotal, 0, ',', '.') }}</span>
+            <span>{{ $item->qty }} x @money($item->price)</span>
+            <span>@money($item->subtotal)</span>
         </div>
     @endforeach
 
     <div class="border-t border-dashed border-black my-1"></div>
 
-    <div class="flex justify-between"><span>Subtotal</span><span>Rp {{ number_format($transaction->subtotal, 0, ',', '.') }}</span></div>
+    <div class="flex justify-between"><span>Subtotal</span><span>@money($transaction->subtotal)</span></div>
     @if($transaction->discount > 0)
-        <div class="flex justify-between"><span>Diskon</span><span>-Rp {{ number_format($transaction->discount, 0, ',', '.') }}</span></div>
+        <div class="flex justify-between"><span>Diskon</span><span>-@money($transaction->discount)</span></div>
     @endif
-    <div class="flex justify-between"><span>Pajak (11%)</span><span>Rp {{ number_format($transaction->tax, 0, ',', '.') }}</span></div>
-    <div class="flex justify-between font-bold text-sm"><span>TOTAL</span><span>Rp {{ number_format($transaction->total, 0, ',', '.') }}</span></div>
+    <div class="flex justify-between"><span>Pajak (11%)</span><span>@money($transaction->tax)</span></div>
+    <div class="flex justify-between font-bold text-sm"><span>TOTAL</span><span>@money($transaction->total)</span></div>
 
     <div class="border-t border-dashed border-black my-1"></div>
 
     @foreach($transaction->payments as $payment)
         <div class="flex justify-between">
             <span>{{ strtoupper($payment->method) }}</span>
-            <span>Rp {{ number_format($payment->amount, 0, ',', '.') }}</span>
+            <span>@money($payment->amount)</span>
         </div>
         @if($payment->reference_no)
             <div>Ref: {{ $payment->reference_no }}</div>

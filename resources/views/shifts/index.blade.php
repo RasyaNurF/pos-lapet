@@ -43,20 +43,20 @@
         </div>
         <div class="stat bg-base-100 rounded-xl shadow-sm">
             <div class="stat-title">Kas awal</div>
-            <div class="stat-value text-xl">Rp {{ number_format($summary['total_start_cash'], 0, ',', '.') }}</div>
+            <div class="stat-value text-xl">@money($summary['total_start_cash'])</div>
         </div>
         <div class="stat bg-base-100 rounded-xl shadow-sm">
             <div class="stat-title">Kas seharusnya</div>
-            <div class="stat-value text-xl">Rp {{ number_format($summary['total_expected_cash'], 0, ',', '.') }}</div>
+            <div class="stat-value text-xl">@money($summary['total_expected_cash'])</div>
         </div>
         <div class="stat bg-base-100 rounded-xl shadow-sm">
             <div class="stat-title">Kas akhir</div>
-            <div class="stat-value text-xl">Rp {{ number_format($summary['total_end_cash'], 0, ',', '.') }}</div>
+            <div class="stat-value text-xl">@money($summary['total_end_cash'])</div>
         </div>
         <div class="stat bg-base-100 rounded-xl shadow-sm">
             <div class="stat-title">Selisih bersih</div>
             <div class="stat-value text-xl {{ $summary['total_difference'] === 0 ? 'text-success' : 'text-error' }}">
-                Rp {{ number_format($summary['total_difference'], 0, ',', '.') }}
+                @money($summary['total_difference'])
             </div>
             <div class="stat-desc">
                 {{ $summary['total_difference'] === 0 ? 'Kas seluruh shift sesuai' : ($summary['total_difference'] < 0 ? 'Kurang' : 'Lebih') }}
@@ -95,13 +95,13 @@
                     <ul class="text-sm mt-1 space-y-1">
                         <li class="flex justify-between">
                             <span>Kas awal</span>
-                            <span class="font-mono">Rp {{ number_format($shift->start_cash, 0, ',', '.') }}</span>
+                            <span class="font-mono">@money($shift->start_cash)</span>
                         </li>
                         <li class="flex justify-between">
                             <span>Penjualan tunai</span>
                             <span class="font-mono">
                                 @if($shift->expected_cash !== null)
-                                    Rp {{ number_format($shift->expected_cash - $shift->start_cash, 0, ',', '.') }}
+                                    @money($shift->expected_cash - $shift->start_cash)
                                 @else
                                     —
                                 @endif
@@ -111,7 +111,7 @@
                             <span>Kas seharusnya</span>
                             <span class="font-mono">
                                 @if($shift->expected_cash !== null)
-                                    Rp {{ number_format($shift->expected_cash, 0, ',', '.') }}
+                                    @money($shift->expected_cash)
                                 @else
                                     —
                                 @endif
@@ -121,7 +121,7 @@
                             <span>Kas akhir</span>
                             <span class="font-mono">
                                 @if($shift->end_cash !== null)
-                                    Rp {{ number_format($shift->end_cash, 0, ',', '.') }}
+                                    @money($shift->end_cash)
                                 @else
                                     —
                                 @endif
@@ -136,9 +136,9 @@
                         @elseif($shift->difference === 0)
                             <span class="font-mono text-success">Rp 0</span>
                         @elseif($shift->difference < 0)
-                            <span class="font-mono text-error">Kurang Rp {{ number_format(abs($shift->difference), 0, ',', '.') }}</span>
+                            <span class="font-mono text-error">Kurang @money(abs($shift->difference))</span>
                         @else
-                            <span class="font-mono text-warning">Lebih Rp {{ number_format($shift->difference, 0, ',', '.') }}</span>
+                            <span class="font-mono text-warning">Lebih @money($shift->difference)</span>
                         @endif
                     </div>
                 </div>

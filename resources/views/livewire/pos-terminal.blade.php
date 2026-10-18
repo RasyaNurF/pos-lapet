@@ -63,7 +63,7 @@
                             @endif
                             <span class="font-bold text-base text-center leading-tight">{{ $product->name }}</span>
                             <span class="text-xs text-base-content/60">{{ $variant->name }}</span>
-                            <span class="text-primary font-semibold mt-1 text-lg">Rp {{ number_format($variant->price, 0, ',', '.') }}</span>
+                            <span class="text-primary font-semibold mt-1 text-lg">@money($variant->price)</span>
                             <span class="text-xs mt-1 {{ $variant->stock <= $product->stock_alert ? 'text-error font-bold' : 'text-base-content/50' }}">
                                 Stok: {{ $variant->stock }}
                             </span>
@@ -123,8 +123,8 @@
                 <div wire:key="cart-{{ $id }}" class="flex justify-between items-center mb-2 bg-base-200 p-3 rounded-lg">
                     <div class="min-w-0 flex-1 mr-2">
                         <div class="font-bold truncate">{{ $item['name'] }}</div>
-                        <div class="text-sm text-base-content/60">Rp {{ number_format($item['price'], 0, ',', '.') }} / item</div>
-                        <div class="text-sm font-semibold text-primary">Rp {{ number_format($item['price'] * $item['qty'], 0, ',', '.') }}</div>
+                        <div class="text-sm text-base-content/60">@money($item['price']) / item</div>
+                        <div class="text-sm font-semibold text-primary">@money($item['price'] * $item['qty'])</div>
                     </div>
                     <div class="flex items-center gap-2">
                         <button wire:click="decreaseQty({{ $id }})" class="w-11 h-11 bg-error/15 text-error rounded-lg font-bold text-2xl leading-none">−</button>
@@ -153,15 +153,15 @@
 
             <div class="flex justify-between text-base mb-1">
                 <span>Subtotal</span>
-                <span class="font-mono">Rp {{ number_format($this->subtotal, 0, ',', '.') }}</span>
+                <span class="font-mono">@money($this->subtotal)</span>
             </div>
             <div class="flex justify-between text-base mb-1">
                 <span>Pajak (11%)</span>
-                <span class="font-mono">Rp {{ number_format($this->tax, 0, ',', '.') }}</span>
+                <span class="font-mono">@money($this->tax)</span>
             </div>
             <div class="flex justify-between text-xl font-bold mb-3 border-t border-base-300 pt-2">
                 <span>TOTAL</span>
-                <span class="font-mono text-primary">Rp {{ number_format($this->total, 0, ',', '.') }}</span>
+                <span class="font-mono text-primary">@money($this->total)</span>
             </div>
 
             <button
@@ -195,7 +195,7 @@
 
                 <div class="bg-primary/10 rounded-xl p-3 mb-3 text-center">
                     <div class="text-sm text-base-content/60">Total Tagihan</div>
-                    <div class="text-3xl font-bold font-mono text-primary">Rp {{ number_format($this->total, 0, ',', '.') }}</div>
+                    <div class="text-3xl font-bold font-mono text-primary">@money($this->total)</div>
                 </div>
 
                 {{-- Metode bayar --}}
@@ -234,7 +234,7 @@
                     <div class="grid grid-cols-3 gap-2 mb-3">
                         @foreach([10000, 20000, 50000, 100000] as $quick)
                             <button wire:click="quickTender({{ $quick }})" class="btn btn-outline btn-sm min-h-[44px] text-sm col-span-1">
-                                {{ 'Rp ' . number_format($quick, 0, ',', '.') }}
+                                @money($quick)
                             </button>
                         @endforeach
                         <button wire:click="$set('amount_tendered', {{ $this->total }})" class="btn btn-outline btn-sm min-h-[44px] text-sm col-span-2">
@@ -267,13 +267,13 @@
 
                     <div class="flex justify-between text-xl font-bold mb-3">
                         <span>Kembalian</span>
-                        <span class="font-mono {{ $this->change < 0 ? 'text-error' : 'text-success' }}">Rp {{ number_format($this->change, 0, ',', '.') }}</span>
+                        <span class="font-mono {{ $this->change < 0 ? 'text-error' : 'text-success' }}">@money($this->change)</span>
                     </div>
                 @else
                     {{-- QRIS: lunas otomatis senilai total, tanpa input uang diterima --}}
                     <div class="bg-info/10 border border-info/30 rounded-xl p-4 mb-3 text-center">
                         <div class="text-sm text-base-content/60 mb-1">Tagihan Dilunasi via QRIS</div>
-                        <div class="text-2xl font-bold font-mono text-info">Rp {{ number_format($this->total, 0, ',', '.') }}</div>
+                        <div class="text-2xl font-bold font-mono text-info">@money($this->total)</div>
                         <div class="text-xs text-base-content/60 mt-1">Pastikan pembayaran berhasil discan sebelum menutup panel.</div>
                     </div>
                 @endif

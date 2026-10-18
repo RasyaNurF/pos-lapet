@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\SettingService;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,6 +26,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        /*
+         * @money(1234567) -> Rp 1.234.567
+         *
+         * Directive alih-alih helper global: tidak memakai namespace global
+         * dan tetap terbaca jelas di Blade.
+         */
+        Blade::directive('money', fn (string $expression): string => "<?php echo \\App\\Support\\Money::format({$expression}); ?>");
     }
 }

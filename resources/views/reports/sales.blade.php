@@ -48,15 +48,15 @@
         </div>
         <div class="stat bg-base-100 rounded-xl shadow-sm">
             <div class="stat-title">Omzet</div>
-            <div class="stat-value text-success text-xl">Rp {{ number_format($summary['omzet'], 0, ',', '.') }}</div>
+            <div class="stat-value text-success text-xl">@money($summary['omzet'])</div>
         </div>
         <div class="stat bg-base-100 rounded-xl shadow-sm">
             <div class="stat-title">Diskon</div>
-            <div class="stat-value text-warning text-xl">Rp {{ number_format($summary['discount'], 0, ',', '.') }}</div>
+            <div class="stat-value text-warning text-xl">@money($summary['discount'])</div>
         </div>
         <div class="stat bg-base-100 rounded-xl shadow-sm">
             <div class="stat-title">Pajak</div>
-            <div class="stat-value text-xl">Rp {{ number_format($summary['tax'], 0, ',', '.') }}</div>
+            <div class="stat-value text-xl">@money($summary['tax'])</div>
         </div>
     </div>
 
@@ -78,13 +78,13 @@
                         @foreach($transaction->items as $item)
                             <li class="flex justify-between">
                                 <span>{{ $item->qty }}x {{ $item->product_name }}</span>
-                                <span class="font-mono">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</span>
+                                <span class="font-mono">@money($item->subtotal)</span>
                             </li>
                         @endforeach
                     </ul>
                     <div class="border-t border-base-200 mt-2 pt-2 flex justify-between font-bold">
                         <span>Total</span>
-                        <span class="font-mono">Rp {{ number_format($transaction->total, 0, ',', '.') }}</span>
+                        <span class="font-mono">@money($transaction->total)</span>
                     </div>
                 </div>
             </div>

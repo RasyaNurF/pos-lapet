@@ -37,7 +37,7 @@
                         </span>
                     </div>
 
-                    <div class="mt-2 font-bold text-lg">Rp {{ number_format($transaction->total, 0, ',', '.') }}</div>
+                    <div class="mt-2 font-bold text-lg">@money($transaction->total)</div>
 
                     <div class="card-actions justify-end mt-3">
                         <button onclick="showReceipt('{{ route('transactions.receipt', $transaction) }}')"

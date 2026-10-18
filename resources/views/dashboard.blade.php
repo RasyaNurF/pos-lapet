@@ -7,7 +7,7 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div class="stat bg-base-100 rounded-xl shadow-sm">
             <div class="stat-title">Omzet Hari Ini</div>
-            <div class="stat-value text-success text-2xl">Rp {{ number_format($todayOmzet, 0, ',', '.') }}</div>
+            <div class="stat-value text-success text-2xl">@money($todayOmzet)</div>
         </div>
         <div class="stat bg-base-100 rounded-xl shadow-sm">
             <div class="stat-title">Total Transaksi</div>
@@ -51,7 +51,7 @@
                             <tr>
                                 <td>{{ $product->product_name }}</td>
                                 <td class="text-right font-mono">{{ $product->total_qty }}</td>
-                                <td class="text-right font-mono">Rp {{ number_format($product->total_revenue, 0, ',', '.') }}</td>
+                                <td class="text-right font-mono">@money($product->total_revenue)</td>
                             </tr>
                         @endforeach
                     </tbody>

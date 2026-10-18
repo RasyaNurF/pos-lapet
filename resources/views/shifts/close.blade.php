@@ -14,11 +14,11 @@
                         </div>
                         <div class="flex justify-between mb-1">
                             <span>Modal Awal</span>
-                            <span class="font-mono">Rp {{ number_format($shift->start_cash, 0, ',', '.') }}</span>
+                            <span class="font-mono">@money($shift->start_cash)</span>
                         </div>
                         <div class="flex justify-between font-bold">
                             <span>Total Sales</span>
-                            <span class="font-mono text-success">Rp {{ number_format($shift->total_sales, 0, ',', '.') }}</span>
+                            <span class="font-mono text-success">@money($shift->total_sales)</span>
                         </div>
                     </div>
 

@@ -35,7 +35,7 @@
                         <div class="mt-2 text-sm">
                             @foreach($product->variants as $variant)
                                 <div class="flex justify-between items-center border-t border-base-200 py-1">
-                                    <span>{{ $variant->name }} — <span class="font-mono">Rp {{ number_format($variant->price, 0, ',', '.') }}</span></span>
+                                    <span>{{ $variant->name }} — <span class="font-mono">@money($variant->price)</span></span>
                                     <form method="POST" action="{{ route('products.variant.stock', $variant) }}" class="flex items-center gap-1">
                                         @csrf @method('PUT')
                                         <input type="number" name="stock" value="{{ $variant->stock }}" min="0"
