@@ -9,6 +9,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\TransactionController;
 use App\Livewire\PosTerminal;
@@ -94,4 +95,12 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/audit-logs', [AuditLogController::class, 'index'])
         ->middleware('permission:audit.view')
         ->name('audit-logs.index');
+
+    // Pengaturan toko — admin saja; kasir tidak boleh mengubah PPN/mata uang.
+    Route::get('/settings', [SettingController::class, 'index'])
+        ->middleware('permission:settings.view')
+        ->name('settings.index');
+    Route::put('/settings', [SettingController::class, 'update'])
+        ->middleware('permission:settings.update')
+        ->name('settings.update');
 });

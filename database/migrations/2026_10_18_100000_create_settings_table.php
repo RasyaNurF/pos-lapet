@@ -15,10 +15,13 @@ return new class extends Migration
      * pengaturan baru cukup lewat `config/settings.php`, tanpa migrasi.
      *
      * Validasi tipe TIDAK diserahkan ke database, melainkan ke registry di
-     * `config/settings.php`, supaya `tax.rate` tidak bisa menerima string
+     * `config/settings.php`, supaya `tax_rate` tidak bisa menerima string
      * sembarangan dari form mana pun.
      *
-     * Key memakai titik (`company.name`) supaya berkelompok secara alami.
+     * Key memakai GARIS BAWAH (`company_name`), bukan titik. Validator Laravel
+     * menafsirkan titik sebagai akses array bersarang sehingga rule
+     * 'company.name' tidak akan pernah menemukan input datar — lihat catatan
+     * panjang di kepala `config/settings.php`.
      */
     public function up(): void
     {

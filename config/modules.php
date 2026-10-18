@@ -56,6 +56,10 @@ return [
             'label' => 'Pengguna',
             'actions' => ['view', 'create', 'update', 'delete'],
         ],
+        'settings' => [
+            'label' => 'Pengaturan Toko',
+            'actions' => ['view', 'update'],
+        ],
     ],
 
     /*

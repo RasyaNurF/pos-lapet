@@ -29,37 +29,37 @@ class SettingServiceTest extends TestCase
      */
     public function test_returns_registry_defaults_before_anything_saved(): void
     {
-        $this->assertEquals('LA PET GALLERY', $this->settings->get('company.name'));
-        $this->assertEquals(11, $this->settings->get('tax.rate'));
-        $this->assertFalse($this->settings->get('tax.included'));
-        $this->assertEquals(0, $this->settings->get('sales.default_discount'));
+        $this->assertEquals('LA PET GALLERY', $this->settings->get('company_name'));
+        $this->assertEquals(11, $this->settings->get('tax_rate'));
+        $this->assertFalse($this->settings->get('tax_included'));
+        $this->assertEquals(0, $this->settings->get('sales_default_discount'));
 
-        $this->assertEquals('Rp', $this->settings->get('currency.symbol'));
-        $this->assertEquals('left', $this->settings->get('currency.position'));
-        $this->assertEquals(0, $this->settings->get('currency.decimals'));
-        $this->assertEquals('.', $this->settings->get('currency.thousands_separator'));
-        $this->assertEquals(',', $this->settings->get('currency.decimal_separator'));
+        $this->assertEquals('Rp', $this->settings->get('currency_symbol'));
+        $this->assertEquals('left', $this->settings->get('currency_position'));
+        $this->assertEquals(0, $this->settings->get('currency_decimals'));
+        $this->assertEquals('.', $this->settings->get('currency_thousands_separator'));
+        $this->assertEquals(',', $this->settings->get('currency_decimal_separator'));
     }
 
     public function test_saves_and_reads_back_values_with_correct_types(): void
     {
         $this->settings->set([
-            'company.name' => 'Gallery Baru',
-            'tax.rate' => '12',
-            'tax.included' => '1',
-            'currency.decimals' => '2',
+            'company_name' => 'Gallery Baru',
+            'tax_rate' => '12',
+            'tax_included' => '1',
+            'currency_decimals' => '2',
         ]);
 
         $fresh = app(SettingService::class);
 
-        $this->assertEquals('Gallery Baru', $fresh->get('company.name'));
-        $this->assertEquals(12, $fresh->get('tax.rate'));
-        $this->assertTrue($fresh->get('tax.included'));
-        $this->assertEquals(2, $fresh->get('currency.decimals'));
+        $this->assertEquals('Gallery Baru', $fresh->get('company_name'));
+        $this->assertEquals(12, $fresh->get('tax_rate'));
+        $this->assertTrue($fresh->get('tax_included'));
+        $this->assertEquals(2, $fresh->get('currency_decimals'));
 
         // Tarif PPN float, bukan int — integer akan memotong 11.5% jadi 11%.
-        $this->assertIsFloat($fresh->get('tax.rate'));
-        $this->assertIsBool($fresh->get('tax.included'));
+        $this->assertIsFloat($fresh->get('tax_rate'));
+        $this->assertIsBool($fresh->get('tax_included'));
     }
 
     /**
@@ -69,7 +69,7 @@ class SettingServiceTest extends TestCase
     public function test_ignores_unknown_keys(): void
     {
         $this->settings->set([
-            'company.name' => 'Aman',      // valid, harus tersimpan
+            'company_name' => 'Aman',      // valid, harus tersimpan
             'role' => 'admin',             // bukan pengaturan
             'password' => 'x',             // bukan pengaturan
         ]);
@@ -77,15 +77,15 @@ class SettingServiceTest extends TestCase
         $this->assertEquals(1, Setting::query()->count());
         $this->assertNull(Setting::query()->where('key', 'role')->first());
         $this->assertNull(Setting::query()->where('key', 'password')->first());
-        $this->assertEquals('Aman', $this->settings->get('company.name'));
+        $this->assertEquals('Aman', $this->settings->get('company_name'));
     }
 
     public function test_rejects_out_of_range_tax_rate(): void
     {
         try {
-            $this->settings->set(['tax.rate' => '150']);
+            $this->settings->set(['tax_rate' => '150']);
         } catch (ValidationException $e) {
-            $this->assertArrayHasKey('tax.rate', $e->errors());
+            $this->assertArrayHasKey('tax_rate', $e->errors());
             $this->assertEquals(0, Setting::query()->count());
 
             return;
@@ -101,9 +101,9 @@ class SettingServiceTest extends TestCase
     public function test_validation_error_uses_human_label(): void
     {
         try {
-            $this->settings->set(['company.name' => '']);
+            $this->settings->set(['company_name' => '']);
         } catch (ValidationException $e) {
-            $this->assertStringContainsString('Nama Toko', $e->errors()['company.name'][0]);
+            $this->assertStringContainsString('Nama Toko', $e->errors()['company_name'][0]);
 
             return;
         }
@@ -119,26 +119,26 @@ class SettingServiceTest extends TestCase
     public function test_empty_string_is_preserved_not_falling_back_to_default(): void
     {
         $this->settings->set([
-            'company.email' => '',
-            'currency.thousands_separator' => '',
+            'company_email' => '',
+            'currency_thousands_separator' => '',
         ]);
 
-        $this->assertSame('', Setting::query()->where('key', 'currency.thousands_separator')->value('value'));
+        $this->assertSame('', Setting::query()->where('key', 'currency_thousands_separator')->value('value'));
 
         $fresh = app(SettingService::class);
-        $this->assertSame('', $fresh->get('currency.thousands_separator'));
-        $this->assertSame('', $fresh->get('company.email'));
+        $this->assertSame('', $fresh->get('currency_thousands_separator'));
+        $this->assertSame('', $fresh->get('company_email'));
     }
 
     public function test_reset_restores_registry_default(): void
     {
-        $this->settings->set(['tax.rate' => '5']);
-        $this->assertEquals(5, app(SettingService::class)->get('tax.rate'));
+        $this->settings->set(['tax_rate' => '5']);
+        $this->assertEquals(5, app(SettingService::class)->get('tax_rate'));
 
-        $this->settings->reset('tax.rate');
+        $this->settings->reset('tax_rate');
 
-        $this->assertEquals(11, app(SettingService::class)->get('tax.rate'));
-        $this->assertNull(Setting::query()->where('key', 'tax.rate')->first());
+        $this->assertEquals(11, app(SettingService::class)->get('tax_rate'));
+        $this->assertNull(Setting::query()->where('key', 'tax_rate')->first());
     }
 
     /**

@@ -45,15 +45,15 @@ class MoneyFormatTest extends TestCase
 
     public function test_symbol_position_right(): void
     {
-        app(SettingService::class)->set(['currency.position' => 'right']);
+        app(SettingService::class)->set(['currency_position' => 'right']);
 
-        $this->assertSame('1.234.567 IDR', $this->reformatted(1234567, ['currency.symbol' => 'IDR']));
+        $this->assertSame('1.234.567 IDR', $this->reformatted(1234567, ['currency_symbol' => 'IDR']));
     }
 
     public function test_decimals_appear_when_enabled(): void
     {
         $this->assertSame('Rp 1.234.567,50', $this->reformatted(1234567.5, [
-            'currency.decimals' => 2,
+            'currency_decimals' => 2,
         ]));
     }
 
@@ -64,16 +64,16 @@ class MoneyFormatTest extends TestCase
     public function test_empty_thousands_separator_yields_no_separator(): void
     {
         $this->assertSame('Rp 1234567', $this->reformatted(1234567, [
-            'currency.thousands_separator' => '',
+            'currency_thousands_separator' => '',
         ]));
     }
 
     public function test_us_style_separators(): void
     {
         $this->assertSame('Rp 1,234,567.50', $this->reformatted(1234567.5, [
-            'currency.decimals' => 2,
-            'currency.thousands_separator' => ',',
-            'currency.decimal_separator' => '.',
+            'currency_decimals' => 2,
+            'currency_thousands_separator' => ',',
+            'currency_decimal_separator' => '.',
         ]));
     }
 

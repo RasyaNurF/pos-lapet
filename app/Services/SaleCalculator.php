@@ -24,7 +24,7 @@ final class SaleCalculator
      */
     public function taxRate(): float
     {
-        return max(0.0, (float) $this->settings->get('tax.rate', 0));
+        return max(0.0, (float) $this->settings->get('tax_rate', 0));
     }
 
     /**
@@ -32,7 +32,7 @@ final class SaleCalculator
      */
     public function taxIsIncluded(): bool
     {
-        return (bool) $this->settings->get('tax.included', false);
+        return (bool) $this->settings->get('tax_included', false);
     }
 
     /**
@@ -69,7 +69,7 @@ final class SaleCalculator
      */
     public function defaultDiscountPercent(): float
     {
-        return (float) $this->settings->get('sales.default_discount', 0);
+        return (float) $this->settings->get('sales_default_discount', 0);
     }
 
     /**

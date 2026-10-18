@@ -8,14 +8,34 @@ declare(strict_types=1);
 |--------------------------------------------------------------------------
 |
 | Meniru pola `config/modules.php`: satu sumber kebenaran untuk default,
-| label, grup tampilan, dan aturan validasi tiap pengaturan.
+| label, grup tampilan, tipe input, dan aturan validasi tiap pengaturan.
+|
+| Halaman /settings dirender PENUH dari registry ini — menambah pengaturan
+| baru cukup menambah entri di sini, tanpa menyentuh view.
+|
+| NAMA KEY WAJIB GARIS BAWAH, BUKAN TITIK.
+|
+| Validator Laravel menafsirkan titik sebagai akses array bersarang, sehingga
+| rule 'company.name' mencari $data['company']['name'] dan tidak akan pernah
+| menemukan input datar 'company.name'. Akibatnya SEMUA rule "required" gagal
+| diam-diam walau datanya sudah benar. Ini sudah dibuktikan langsung:
+|
+|   Validator::make(['company.name' => 'x'], ['company.name' => 'required'])
+|       ->fails()   // true
+|       ->getValue('company.name')   // null
+|
+| Karena itu titik dipakai untuk permission (`products.view` di config/modules.php)
+| yang tidak pernah melewati validator, tetapi TIDAK untuk key pengaturan ini.
 |
 | Tipe nilai ditentukan SECARA IMPLISIT oleh tipe `default`:
 |   bool  -> disimpan '1' / '' lalu dibaca kembali boolean
-|   int   -> disimpan string lalu dibaca kembali integer
+|   float -> disimpan string lalu dibaca kembali float
 |   lainnya -> string
 |
-| PERINGATAN: nilai `tax.rate` di sini HANYA berlaku untuk transaksi BARU.
+| `type` di bawah adalah TIPE INPUT di form (text, number, checkbox, ...),
+| bukan tipe nilai — jangan tertukar.
+|
+| PERINGATAN: nilai `tax_rate` di sini HANYA berlaku untuk transaksi BARU.
 | Tarif yang benar-benar dipakai tiap transaksi tersimpan di kolom
 | `transactions.tax_rate`, sehingga mengubah PPN tidak mengubah riwayat
 | struk lama.
@@ -39,42 +59,52 @@ return [
         |------------------------------------------------------------------
         | Informasi Toko
         |------------------------------------------------------------------
-        | Tampil di struk cetak. `company.name` menggantikan hardcode
+        | Tampil di struk cetak. `company_name` menggantikan hardcode
         | "LA PET GALLERY" lama di transactions/receipt.blade.php.
+        |
+        | `company_logo` sengaja memakai type 'file': nilainya path di disk
+        | publik, dan diunggah lewat mekanisme khusus di SettingController —
+        | bukan lewat loop generik.
         */
-        'company.name' => [
+        'company_name' => [
             'group' => 'information',
             'label' => 'Nama Toko',
+            'type' => 'text',
             'default' => 'LA PET GALLERY',
             'rules' => ['required', 'string', 'max:120'],
         ],
-        'company.address' => [
+        'company_address' => [
             'group' => 'information',
             'label' => 'Alamat Toko',
+            'type' => 'textarea',
             'default' => '',
             'rules' => ['nullable', 'string', 'max:500'],
         ],
-        'company.phone' => [
+        'company_phone' => [
             'group' => 'information',
             'label' => 'Telepon Toko',
+            'type' => 'tel',
             'default' => '',
             'rules' => ['nullable', 'string', 'max:30'],
         ],
-        'company.email' => [
+        'company_email' => [
             'group' => 'information',
             'label' => 'Email',
+            'type' => 'email',
             'default' => '',
             'rules' => ['nullable', 'email', 'max:120'],
         ],
-        'company.website' => [
+        'company_website' => [
             'group' => 'information',
             'label' => 'Website',
+            'type' => 'url',
             'default' => '',
             'rules' => ['nullable', 'string', 'max:120'],
         ],
-        'company.logo' => [
+        'company_logo' => [
             'group' => 'information',
             'label' => 'Logo Toko',
+            'type' => 'file',
             'default' => '',
             'rules' => ['nullable', 'string', 'max:255'],
         ],
@@ -83,28 +113,31 @@ return [
         |------------------------------------------------------------------
         | Umum
         |------------------------------------------------------------------
-        | `tax.rate` menggantikan hardcode `0.11` di TransactionService
-        | dan PosTerminal. `tax.included` mengubah CARA PPN dihitung:
+        | `tax_rate` menggantikan hardcode `0.11` di TransactionService
+        | dan PosTerminal. `tax_included` mengubah CARA PPN dihitung:
         | aktif -> PPN dikeluarkan dari subtotal, bukan ditambahkan.
         |
         | default ditulis 11.0 (bukan 11): tipe default menentukan tipe nilai,
         | dan integer akan memotong tarif pecahan 11.5% menjadi 11%.
         */
-        'tax.rate' => [
+        'tax_rate' => [
             'group' => 'general',
             'label' => 'Tarif PPN (%)',
+            'type' => 'number',
             'default' => 11.0,
             'rules' => ['required', 'numeric', 'min:0', 'max:100'],
         ],
-        'tax.included' => [
+        'tax_included' => [
             'group' => 'general',
             'label' => 'PPN sudah termasuk harga',
+            'type' => 'checkbox',
             'default' => false,
             'rules' => ['boolean'],
         ],
-        'sales.default_discount' => [
+        'sales_default_discount' => [
             'group' => 'general',
             'label' => 'Diskon Penjualan Default (%)',
+            'type' => 'number',
             'default' => 0.0,
             'rules' => ['required', 'numeric', 'min:0', 'max:100'],
         ],
@@ -113,36 +146,41 @@ return [
         |------------------------------------------------------------------
         | Lokalisasi
         |------------------------------------------------------------------
-        | Default di bawah mereproduasi perilaku lama persis:
+        | Default di bawah mereproduksi perilaku lama persis:
         |   number_format($x, 0, ',', '.') => "1.234.567" lalu "Rp " di depan.
         */
-        'currency.symbol' => [
+        'currency_symbol' => [
             'group' => 'localisation',
             'label' => 'Simbol Mata Uang',
+            'type' => 'text',
             'default' => 'Rp',
             'rules' => ['required', 'string', 'max:10'],
         ],
-        'currency.position' => [
+        'currency_position' => [
             'group' => 'localisation',
             'label' => 'Posisi Simbol',
+            'type' => 'select',
             'default' => 'left',
             'rules' => ['required', 'in:left,right'],
         ],
-        'currency.decimals' => [
+        'currency_decimals' => [
             'group' => 'localisation',
             'label' => 'Jumlah Desimal',
+            'type' => 'number',
             'default' => 0,
             'rules' => ['required', 'integer', 'min:0', 'max:4'],
         ],
-        'currency.thousands_separator' => [
+        'currency_thousands_separator' => [
             'group' => 'localisation',
             'label' => 'Pemisah Ribuan',
+            'type' => 'text',
             'default' => '.',
             'rules' => ['nullable', 'string', 'max:1'],
         ],
-        'currency.decimal_separator' => [
+        'currency_decimal_separator' => [
             'group' => 'localisation',
             'label' => 'Pemisah Desimal',
+            'type' => 'text',
             'default' => ',',
             'rules' => ['nullable', 'string', 'max:1'],
         ],

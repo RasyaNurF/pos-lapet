@@ -73,6 +73,9 @@
                 @can('audit.view')
                     <li><a href="{{ route('audit-logs.index') }}" class="{{ request()->routeIs('audit-logs.*') ? 'active' : '' }}">🧾 Audit Log</a></li>
                 @endcan
+                @can('settings.view')
+                    <li><a href="{{ route('settings.index') }}" class="{{ request()->routeIs('settings.*') ? 'active' : '' }}">⚙️ Pengaturan Toko</a></li>
+                @endcan
             </ul>
         </aside>
 

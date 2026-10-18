@@ -94,7 +94,7 @@ class ConfigurableTaxTest extends TestCase
 
     public function test_tax_follows_store_setting(): void
     {
-        app(SettingService::class)->set(['tax.rate' => 20]);
+        app(SettingService::class)->set(['tax_rate' => 20]);
 
         $transaction = $this->checkout($this->makeVariant(price: 100000));
 
@@ -110,7 +110,7 @@ class ConfigurableTaxTest extends TestCase
     {
         $before = $this->checkout($this->makeVariant(price: 100000));
 
-        app(SettingService::class)->set(['tax.rate' => 25]);
+        app(SettingService::class)->set(['tax_rate' => 25]);
 
         $after = $this->checkout($this->makeVariant(price: 100000));
 
@@ -130,7 +130,7 @@ class ConfigurableTaxTest extends TestCase
     {
         $transaction = $this->checkout($this->makeVariant());
 
-        app(SettingService::class)->set(['tax.rate' => 25]);
+        app(SettingService::class)->set(['tax_rate' => 25]);
 
         $this->actingAs($this->admin)
             ->get(route('transactions.receipt', $transaction))
@@ -141,7 +141,7 @@ class ConfigurableTaxTest extends TestCase
 
     public function test_fractional_rate_is_rendered_without_trailing_zero(): void
     {
-        app(SettingService::class)->set(['tax.rate' => '11.5']);
+        app(SettingService::class)->set(['tax_rate' => '11.5']);
 
         $transaction = $this->checkout($this->makeVariant(price: 200000));
 
@@ -160,7 +160,7 @@ class ConfigurableTaxTest extends TestCase
      */
     public function test_tax_included_is_extracted_from_subtotal(): void
     {
-        app(SettingService::class)->set(['tax.included' => true]);
+        app(SettingService::class)->set(['tax_included' => true]);
 
         $transaction = $this->checkout($this->makeVariant(price: 1110000));
 
@@ -171,7 +171,7 @@ class ConfigurableTaxTest extends TestCase
 
     public function test_tax_included_still_deducts_discount(): void
     {
-        app(SettingService::class)->set(['tax.included' => true]);
+        app(SettingService::class)->set(['tax_included' => true]);
 
         $transaction = $this->checkout($this->makeVariant(price: 1110000), discount: 5000);
 
@@ -192,7 +192,7 @@ class ConfigurableTaxTest extends TestCase
      */
     public function test_pos_preview_matches_backend_charge(): void
     {
-        app(SettingService::class)->set(['tax.rate' => 20]);
+        app(SettingService::class)->set(['tax_rate' => 20]);
 
         $variant = $this->makeVariant(price: 25000);
 
@@ -214,7 +214,7 @@ class ConfigurableTaxTest extends TestCase
 
     public function test_pos_preview_matches_backend_when_tax_included(): void
     {
-        app(SettingService::class)->set(['tax.included' => true]);
+        app(SettingService::class)->set(['tax_included' => true]);
 
         $variant = $this->makeVariant(price: 1110000);
 
@@ -237,7 +237,7 @@ class ConfigurableTaxTest extends TestCase
 
     public function test_default_discount_is_prefilled_when_first_item_added(): void
     {
-        app(SettingService::class)->set(['sales.default_discount' => 10]);
+        app(SettingService::class)->set(['sales_default_discount' => 10]);
 
         $variant = $this->makeVariant(price: 100000);
 
@@ -255,7 +255,7 @@ class ConfigurableTaxTest extends TestCase
      */
     public function test_cashier_override_is_not_clobbered_by_later_items(): void
     {
-        app(SettingService::class)->set(['sales.default_discount' => 10]);
+        app(SettingService::class)->set(['sales_default_discount' => 10]);
 
         $variant = $this->makeVariant(price: 100000);
 
@@ -289,7 +289,7 @@ class ConfigurableTaxTest extends TestCase
      */
     public function test_default_discount_is_capped_at_subtotal(): void
     {
-        app(SettingService::class)->set(['sales.default_discount' => 100]);
+        app(SettingService::class)->set(['sales_default_discount' => 100]);
 
         $variant = $this->makeVariant(price: 50000);
 
@@ -304,7 +304,7 @@ class ConfigurableTaxTest extends TestCase
      */
     public function test_resume_does_not_reapply_default_discount(): void
     {
-        app(SettingService::class)->set(['sales.default_discount' => 10]);
+        app(SettingService::class)->set(['sales_default_discount' => 10]);
 
         $variant = $this->makeVariant(price: 100000);
 

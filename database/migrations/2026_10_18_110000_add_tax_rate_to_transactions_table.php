@@ -14,7 +14,7 @@ return new class extends Migration
      *
      * Sebelumnya tarif di-hardcode 0.11 di TransactionService dan PosTerminal,
      * sehingga struk lama tidak pernah bisa tampil benar setelah tarif berubah.
-     * Dengan kolom ini, mengubah `tax.rate` di pengaturan TIDAK mengubah
+     * Dengan kolom ini, mengubah `tax_rate` di pengaturan TIDAK mengubah
      * riwayat — struk lama tetap menampilkan tarif yang benar-benar dipakai.
      */
     public function up(): void

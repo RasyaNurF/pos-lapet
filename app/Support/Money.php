@@ -26,13 +26,13 @@ class Money
         /** @var SettingService $settings */
         $settings = app(SettingService::class);
 
-        $symbol = (string) $settings->get('currency.symbol', 'Rp');
-        $position = (string) $settings->get('currency.position', 'left');
-        $decimals = (int) $settings->get('currency.decimals', 0);
+        $symbol = (string) $settings->get('currency_symbol', 'Rp');
+        $position = (string) $settings->get('currency_position', 'left');
+        $decimals = (int) $settings->get('currency_decimals', 0);
 
         // Bisa saja '' (pemisah sengaja dikosongkan) — biarkan apa adanya.
-        $thousands = (string) $settings->get('currency.thousands_separator', '.');
-        $decimal = (string) $settings->get('currency.decimal_separator', ',');
+        $thousands = (string) $settings->get('currency_thousands_separator', '.');
+        $decimal = (string) $settings->get('currency_decimal_separator', ',');
 
         $number = number_format(
             (float) $amount,
