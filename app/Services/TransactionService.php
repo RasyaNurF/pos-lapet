@@ -16,12 +16,20 @@ use RuntimeException;
 
 class TransactionService
 {
+    /** Metode pembayaran yang sah. */
+    private const array ALLOWED_METHODS = [
+        TransactionPayment::METHOD_CASH,
+        TransactionPayment::METHOD_QRIS,
+    ];
+
     /**
      * Proses checkout: simpan header, item (snapshot), pembayaran, potong stok.
      *
      * Semua kalkulasi & potong stok dilakukan di backend (AGENTS.md §3).
+     * Input dari frontend **tidak pernah dipercaya** — divalidasi ulang di sini
+     * (Layer 1 Input Guard), karena komponen/klien bisa dimanipulasi.
      *
-     * @param  array<int, array{id: int, name: string, price: int, qty: int}>  $cart
+     * @param  array<int, array{id: int|string, name?: string, price?: int, qty?: int|string}>  $cart
      */
     public function processTransaction(
         User $user,
@@ -35,33 +43,57 @@ class TransactionService
             throw new RuntimeException('Keranjang kosong.');
         }
 
+        // --- Layer 1 Input Guard: jangan percaya frontend -------------------
+        if (! in_array($paymentMethod, self::ALLOWED_METHODS, true)) {
+            throw new RuntimeException('Metode pembayaran tidak dikenal.');
+        }
+
+        if ($amountTendered < 0) {
+            throw new RuntimeException('Uang diterima tidak boleh negatif.');
+        }
+
+        if ($discount < 0) {
+            $discount = 0;
+        }
+
         return DB::transaction(function () use ($user, $cart, $customerId, $paymentMethod, $amountTendered, $discount): Transaction {
             // Hitung ulang total di backend — jangan percaya frontend (AGENTS.md §3).
             $subtotal = 0;
             $items = [];
 
             foreach ($cart as $item) {
+                $qty = (int) ($item['qty'] ?? 0);
+
+                // Layer 1: qty harus bilangan bulat positif — tolak qty negatif
+                // yang bisa membalik arah potong stok menjadi penambahan.
+                if ($qty < 1) {
+                    throw new RuntimeException('Jumlah item tidak valid.');
+                }
+
                 // Lock baris variant agar aman dari race condition dua kasir (ADR-0003).
                 $variant = ProductVariant::query()
                     ->whereKey($item['id'])
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if ($variant->stock < $item['qty']) {
+                if ($variant->stock < $qty) {
                     throw new RuntimeException("Stok \"{$variant->display_name}\" tidak mencukupi.");
                 }
 
-                $lineSubtotal = $variant->price * $item['qty'];
+                $lineSubtotal = $variant->price * $qty;
                 $subtotal += $lineSubtotal;
 
                 $items[] = [
                     'variant' => $variant,
                     'price' => $variant->price,
                     'cost' => $variant->cost,
-                    'qty' => $item['qty'],
+                    'qty' => $qty,
                     'subtotal' => $lineSubtotal,
                 ];
             }
+
+            // Layer 1: batasi diskon maksimal subtotal (total tidak pernah negatif).
+            $discount = min($discount, $subtotal);
 
             $tax = (int) round($subtotal * 0.11); // PPN 11%
             $total = max(0, $subtotal + $tax - $discount);

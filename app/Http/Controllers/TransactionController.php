@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\VoidTransactionRequest;
 use App\Models\Transaction;
 use App\Services\TransactionService;
 use Illuminate\Http\RedirectResponse;
@@ -47,19 +48,15 @@ class TransactionController extends Controller
     /**
      * Void transaksi: kembalikan stok & tandai status.
      */
-    public function void(Request $request, Transaction $transaction): RedirectResponse
+    public function void(VoidTransactionRequest $request, Transaction $transaction): RedirectResponse
     {
         $this->authorize('void', $transaction);
-
-        $data = $request->validate([
-            'reason' => ['nullable', 'string', 'max:255'],
-        ]);
 
         try {
             $this->transactionService->voidTransaction(
                 transaction: $transaction,
                 by: $request->user(),
-                reason: $data['reason'] ?? null,
+                reason: $request->validated('reason'),
             );
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());

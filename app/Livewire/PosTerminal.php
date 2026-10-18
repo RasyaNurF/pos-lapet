@@ -14,6 +14,7 @@ use App\Services\TransactionService;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -23,7 +24,14 @@ class PosTerminal extends Component
 {
     use WithPagination;
 
-    /** Keranjang: [variant_id => ['id', 'name', 'price', 'qty']] */
+    /**
+     * Keranjang: [variant_id => ['id', 'name', 'price', 'qty']]
+     *
+     * #[Locked] — Layer 1 Input Guard: klien **tidak boleh** meng-set langsung
+     * (mencegah manipulasi qty negatif / harga lewat request mentah Livewire).
+     * Hanya dimutasi oleh aksi server (addToCart, increaseQty, dll).
+     */
+    #[Locked]
     public array $cart = [];
 
     #[Validate('nullable|string|max:255')]

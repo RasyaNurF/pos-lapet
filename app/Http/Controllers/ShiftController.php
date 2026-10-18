@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CloseShiftRequest;
+use App\Http\Requests\OpenShiftRequest;
 use App\Services\ShiftService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,17 +31,10 @@ class ShiftController extends Controller
     /**
      * Proses buka shift.
      */
-    public function open(Request $request): RedirectResponse
+    public function open(OpenShiftRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'start_cash' => ['required', 'numeric', 'min:0'],
-        ], [
-            'start_cash.required' => 'Modal awal wajib diisi.',
-            'start_cash.min' => 'Modal awal tidak boleh negatif.',
-        ]);
-
         try {
-            $this->shiftService->openShift($request->user(), (int) $data['start_cash']);
+            $this->shiftService->openShift($request->user(), (int) $request->validated('start_cash'));
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -63,17 +58,10 @@ class ShiftController extends Controller
     /**
      * Proses tutup shift + hitung selisih kas.
      */
-    public function close(Request $request): RedirectResponse
+    public function close(CloseShiftRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'end_cash' => ['required', 'numeric', 'min:0'],
-        ], [
-            'end_cash.required' => 'Kas akhir wajib diisi.',
-            'end_cash.min' => 'Kas akhir tidak boleh negatif.',
-        ]);
-
         try {
-            $result = $this->shiftService->closeShift($request->user(), (int) $data['end_cash']);
+            $result = $this->shiftService->closeShift($request->user(), (int) $request->validated('end_cash'));
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCustomerRequest;
+use App\Http\Requests\UpdateCustomerRequest;
 use App\Models\Customer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,32 +26,20 @@ class CustomerController extends Controller
         return view('customers.index', compact('customers'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreCustomerRequest $request): RedirectResponse
     {
         $this->authorize('create', Customer::class);
 
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:32'],
-            'email' => ['nullable', 'email', 'max:255'],
-        ]);
-
-        Customer::create($data);
+        Customer::create($request->validated());
 
         return back()->with('success', 'Pelanggan berhasil ditambahkan.');
     }
 
-    public function update(Request $request, Customer $customer): RedirectResponse
+    public function update(UpdateCustomerRequest $request, Customer $customer): RedirectResponse
     {
         $this->authorize('update', $customer);
 
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:32'],
-            'email' => ['nullable', 'email', 'max:255'],
-        ]);
-
-        $customer->update($data);
+        $customer->update($request->validated());
 
         return back()->with('success', 'Pelanggan berhasil diperbarui.');
     }

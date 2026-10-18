@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCategoryRequest;
+use App\Http\Requests\UpdateCategoryRequest;
 use App\Models\Category;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,28 +27,20 @@ class CategoryController extends Controller
         return view('categories.index', compact('categories'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreCategoryRequest $request): RedirectResponse
     {
         $this->authorize('create', Category::class);
 
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:categories,name'],
-        ]);
-
-        Category::create($data);
+        Category::create($request->validated());
 
         return back()->with('success', 'Kategori berhasil ditambahkan.');
     }
 
-    public function update(Request $request, Category $category): RedirectResponse
+    public function update(UpdateCategoryRequest $request, Category $category): RedirectResponse
     {
         $this->authorize('update', $category);
 
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:categories,name,'.$category->id],
-        ]);
-
-        $category->update($data);
+        $category->update($request->validated());
 
         return back()->with('success', 'Kategori berhasil diperbarui.');
     }
