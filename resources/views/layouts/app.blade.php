@@ -116,7 +116,7 @@
             Swal.fire({ icon: 'error', title, text, ...swalDefault, confirmButtonText: 'OK' });
         }
 
-        function swalConfirm({ title, text, url }) {
+        function swalConfirm({ title, text, url, method = 'DELETE' }) {
             Swal.fire({
                 icon: 'warning',
                 title: title ?? 'Konfirmasi',
@@ -128,7 +128,7 @@
                     const form = document.createElement('form');
                     form.method = 'POST';
                     form.action = url;
-                    form.innerHTML = '@csrf<input type="hidden" name="_method" value="DELETE">';
+                    form.innerHTML = '@csrf<input type="hidden" name="_method" value="' + method + '">';
                     document.body.appendChild(form);
                     form.submit();
                 }

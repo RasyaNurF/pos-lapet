@@ -27,7 +27,7 @@
                             <button @click="mode = 'edit'; form = {{ json_encode($category->only(['id', 'name'])) }}; openPanel = true"
                                     class="btn btn-sm btn-outline min-h-[44px]">Edit</button>
                             <form method="POST" action="{{ route('categories.destroy', $category) }}"
-                                  onsubmit="return confirm('Hapus kategori {{ $category->name }}?')">
+                                  onsubmit="swalConfirm({ title: this.dataset.title, url: this.action }); return false;" data-title="Hapus kategori {{ $category->name }}?">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="btn btn-sm btn-error text-white min-h-[44px]">Hapus</button>
                             </form>

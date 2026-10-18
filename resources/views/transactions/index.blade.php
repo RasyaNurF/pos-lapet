@@ -46,7 +46,7 @@
                         @can('void', $transaction)
                             @unless($transaction->isVoided())
                                 <form method="POST" action="{{ route('transactions.void', $transaction) }}"
-                                      onsubmit="return confirm('Void transaksi {{ $transaction->invoice_no }}? Stok akan dikembalikan.')">
+                                      onsubmit="swalConfirm({ title: this.dataset.title, text: this.dataset.text, url: this.action, method: 'POST' }); return false;" data-title="Void transaksi {{ $transaction->invoice_no }}?" data-text="Stok akan dikembalikan.">
                                     @csrf
                                     <input type="hidden" name="reason" value="Dibatalkan dari halaman riwayat">
                                     <button type="submit" class="btn btn-sm btn-error text-white min-h-[44px]">Void</button>

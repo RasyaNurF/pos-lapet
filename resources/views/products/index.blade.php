@@ -50,7 +50,7 @@
                             <button @click="mode = 'edit'; form = {{ json_encode($product->only(['id', 'sku', 'name', 'category_id', 'base_price', 'base_cost', 'stock_alert', 'is_active'])) }}; openPanel = true"
                                     class="btn btn-sm btn-outline min-h-[44px]">Edit</button>
                             <form method="POST" action="{{ route('products.destroy', $product) }}"
-                                  onsubmit="return confirm('Hapus produk {{ $product->name }}?')">
+                                  onsubmit="swalConfirm({ title: this.dataset.title, url: this.action }); return false;" data-title="Hapus produk {{ $product->name }}?">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="btn btn-sm btn-error text-white min-h-[44px]">Hapus</button>
                             </form>
