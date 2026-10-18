@@ -1,4 +1,16 @@
-🗄️ TAHAP 1: Database & Fondasi (Master Data)
+> **Status pengerjaan**
+>
+> - [x] TAHAP 1 — Database & Fondasi (selesai)
+> - [x] TAHAP 2 — POS Terminal (selesai)
+> - [x] TAHAP 3 — Cetak Struk & Shift Kasir (selesai)
+> - [x] TAHAP 4 — Laporan & Export (selesai)
+> - [x] TAHAP 5 — Testing, Polish & Build Assets (selesai; 37 test hijau, pint bersih, `npm run build` sukses)
+> - [ ] TAHAP 6 — Minimum Enterprise Guard (rencana; menunggu eksekusi)
+> - [ ] Deployment (VPS/Nginx) — belum dikerjakan
+>
+> Login: `admin@lapet.test` / `kasir@lapet.test`, password `password`.
+
+🗄️ TAHAP 1: Database & Fondasi (Master Data) ✅
 Tujuan: Membangun skema database dan CRUD dasar untuk data yang tidak sering berubah.
 
 Buat Migration & Model
@@ -27,7 +39,7 @@ Gunakan Slide-over Panel (Alpine.js) untuk form tambah/edit (sesuai standar Tabl
 
 Test: php artisan test untuk memastikan CRUD berjalan.
 
-🛒 TAHAP 2: POS Terminal (Core Feature)
+🛒 TAHAP 2: POS Terminal (Core Feature) ✅
 Tujuan: Membangun antarmuka utama kasir (Livewire Component) yang Tablet-Friendly (Split-screen, Grid, Tap-Tap).
 
 Buat Livewire Component PosTerminal
@@ -68,7 +80,7 @@ Buat migration suspended_transactions.
 
 Simpan array cart ke JSON saat tombol "Suspend" ditekan. Tarik kembali saat di-resume.
 
-🖨️ TAHAP 3: Cetak Struk & Shift Kasir
+🖨️ TAHAP 3: Cetak Struk & Shift Kasir ✅
 Tujuan: Menyelesaikan alur transaksi dengan cetak struk thermal dan penutupan shift.
 
 Cetak Struk (Print Modal)
@@ -91,7 +103,7 @@ Fitur untuk membatalkan transaksi yang salah (dengan konfirmasi swal:confirm).
 
 Pastikan stok produk kembali bertambah saat transaksi di-void.
 
-📊 TAHAP 4: Laporan & Export (Admin Dashboard)
+📊 TAHAP 4: Laporan & Export (Admin Dashboard) ✅
 Tujuan: Membuat halaman untuk pemilik/admin melihat performa toko dan export data.
 
 Dashboard Admin
@@ -114,7 +126,7 @@ Laporan Stok (Low Stock Alert)
 
 Halaman yang menampilkan daftar produk dengan stok di bawah batas minimum.
 
-🚀 TAHAP 5: Testing, Polish & Deployment
+🚀 TAHAP 5: Testing, Polish & Deployment ✅ (deployment opsional)
 Tujuan: Memastikan aplikasi stabil, UI/UX nyaman di tablet, dan siap di-upload ke server.
 
 Testing (PHPUnit)
@@ -150,3 +162,71 @@ Atur virtual host, jalankan php artisan migrate --seed --force.
 Setup cron job untuk queue (jika ada pengiriman email struk).
 
 Arahkan domain/subdomain ke folder public.
+
+🛡️ TAHAP 6: Minimum Enterprise Guard (Rencana)
+Tujuan: Menambahkan guard rail 5 lapis ala sistem enterprise (POS/pembayaran/audit) dengan effort realistis. Disusun dari hasil audit codebase terhadap 15 guard.
+
+Hasil Audit (kondisi sebelum Tahap 6)
+
+Lapisan yang sudah kuat:
+
+Consistency Guard — checkout/void/shift satu DB::transaction.
+Integrity Guard — FOREIGN KEY lengkap, snapshot nama+harga item.
+Soft Delete Guard — semua tabel bisnis (ADR-0026).
+Authorization Guard — Spatie permission + policy + middleware per-route.
+Race Condition (parsial) — lockForUpdate pada baris product_variants.
+
+Celah yang ditambal:
+
+Race condition invoice — generateInvoiceNo() baca MAX tanpa lock → tabrakan saat 2 kasir bersamaan.
+Idempotency — klik "BAYAR" 2× cepat bisa menghasilkan 2 transaksi.
+Void dobel — cek isVoided() di luar transaksi → stok bisa kembali 2×.
+Buka shift dobel — check-then-act tanpa lock.
+Input tidak dipercaya — $cart Livewire tanpa #[Locked] (qty negatif bisa menambah stok; discount ekstrem bisa membuat total 0); service tidak memvalidasi ulang qty/discount/metode.
+Tanpa CHECK constraint — angka negatif bisa lolos jika ada bug aplikasi.
+Tanpa rate limiting login — brute force bebas.
+Tanpa audit log — adjust stok dari halaman produk tidak mencatat siapa/old/new (celah fraud internal).
+
+Commit 1 — feat(security): input & access guard (Layer 1–2)
+
+#[Locked] pada $cart di PosTerminal (mutasi hanya dari aksi server).
+Validasi backend di TransactionService: qty integer ≥ 1, discount di-clamp maks subtotal, paymentMethod in:cash,qris, amountTendered ≥ 0.
+Rate limiting login: 5 percobaan/menit per email+IP → 429 (AuthController).
+Refactor validasi inline $request->validate() → FormRequest (StoreProductRequest, UpdateProductRequest, StoreCategoryRequest, UpdateCategoryRequest, StoreCustomerRequest, UpdateCustomerRequest, OpenShiftRequest, CloseShiftRequest, VoidTransactionRequest) — kepatuhan AGENTS.md §3.
+Test: GuardInputTest, LoginRateLimitTest.
+
+Commit 2 — feat(security): business guard — idempotency, invoice atomik, void idempotent (Layer 3)
+
+Migrasi: kolom client_token (UNIQUE) di transactions; tabel invoice_counters (day PK, last_number).
+Token dibuat saat panel bayar dibuka; klik bayar ganda → insert kedua kena unique violation → service kembalikan transaksi lama (idempotent).
+generateInvoiceNo() → lockForUpdate pada invoice_counters (sekuens atomik).
+voidTransaction() → cek isVoided() di dalam DB::transaction + lockForUpdate baris transaksi.
+openShift() → lockForUpdate baris users sebelum cek hasOpenShift.
+Test: GuardBusinessTest (6 test: token dobel, sekuens invoice, void dobel, shift dobel, stok 1 → 1 sukses, struk idempotent).
+
+Commit 3 — feat(security): database constraint guard (Layer 4)
+
+Migrasi CHECK constraints (driver-aware, hanya MySQL — SQLite tidak mendukung ALTER ADD CONSTRAINT):
+product_variants: stock ≥ 0, price ≥ 0; transaction_items: qty > 0; transactions: subtotal/tax/discount/total ≥ 0; transaction_payments: amount ≥ 0; shifts: start_cash ≥ 0.
+UNIQUE invoice_no & sku sudah ada dari awal — jaring pengaman terakhir tetap di DB.
+
+Commit 4 — feat(security): audit guard (Layer 5)
+
+Tabel audit_logs: user_id (nullable FK), action (index), auditable morph, old_values JSON, new_values JSON, ip_address, user_agent, created_at. Tanpa soft-delete — log tidak boleh dihapus.
+Service AuditLogger::log(user, action, model, old, new) — null-safe untuk konteks non-HTTP.
+Cakupan penuh: stock.adjust, transaction.void, shift.open/close, product.create/update/delete, category.*, customer.*.
+Permission audit.view (admin) + halaman /audit-logs (tabel + filter tanggal/aksi).
+Test: AuditLogTest.
+
+Commit 5 — docs: rekomendasi operational guard
+
+Backup: cron mysqldump --single-transaction harian, retensi 30 hari, test restore berkala ("bisa recovery ke 14:02?").
+Monitoring: LOG_CHANNEL=daily, pail di VPS, alert error 5xx.
+Availability: opsi queue struk email, cache rate limiter Redis saat multi-server.
+Backlog (belum diimplementasi): optimistic locking produk (kolom version) untuk guard lost update — butuh UX "data sudah diubah orang lain".
+
+Aturan desain yang dikunci
+
+Audit log: cakupan penuh (semua aksi CRUD + stok + void + shift).
+Validasi: refactor ke FormRequest (kepatuhan AGENTS.md §3) untuk endpoint produk/kategori/pelanggan/shift/void.
+Diskon: backend membatasi maks = subtotal (total minimal 0, pajak tetap dihitung).
