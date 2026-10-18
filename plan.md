@@ -9,7 +9,8 @@
 > - [x] TAHAP 7 — Navigasi & Tutup Shift (selesai; POS bukan lagi jalan buntu)
 > - [x] TAHAP 8 — Laporan Selisih Kas (selesai; 87 test hijau, 2 skip MySQL-only)
 > - [x] TAHAP 9 — Store Config (selesai; 129 test hijau, 2 skip MySQL-only, pint bersih, `npm run build` sukses)
-> - [ ] TAHAP 10 — Modul Karyawan (rencana; CRUD user + role manajer)
+> - [x] TAHAP 10 — Modul Karyawan (selesai; 196 test hijau, 4 skip MySQL-only, pint bersih)
+> - [x] TAHAP 11 — Konfirmasi Hapus SweetAlert2 (selesai; 201 test hijau, 4 skip MySQL-only, pint bersih 134 file)
 > - [ ] Deployment (VPS/Nginx) — belum dikerjakan
 >
 > Login: `admin@lapet.test` / `kasir@lapet.test`, password `password`.
@@ -449,8 +450,8 @@ Test uang sebaiknya memakai subtotal yang habis dibagi, supaya hasilnya bisa div
 - **Pemilihan Printer (Ticket/Invoice/Takings)** — memilih printer fisik di PC kasir via WebUSB. Bukan data yang bermakna disimpan di server, dan tiap perangkat kasir bisa berbeda.
 - **Custom Field 1–10** — kolom yang hampir pasti dibiarkan kosong selamanya.
 
-## 👥 TAHAP 10: Modul Karyawan 📋 Rencana
-Tujuan: modul `users` **terdaftar di `config/modules.php`** (view/create/update/delete) tapi **tidak pernah diimplementasikan** — registry itu hanya sumber pembuat permission. Tidak ada `UserController`, tidak ada `resources/views/users/`, tidak ada route `/users`. Satu-satunya cara menambah kasir saat ini: menyunting `DatabaseSeeder`.
+## 👥 TAHAP 10: Modul Karyawan ✅ Selesai
+Tujuan awal: modul `users` **terdaftar di `config/modules.php`** (view/create/update/delete) tapi **tidak pernah diimplementasikan** — registry itu hanya sumber pembuat permission. Tidak ada `UserController`, tidak ada `resources/views/users/`, tidak ada route `/users`. Satu-satunya cara menambah kasir saat ini: menyunting `DatabaseSeeder`.
 
 Keputusan: CRUD lengkap + profil/data karyawan (telepon, alamat, tanggal masuk) + status aktif/nonaktif diatur admin; role baru `manajer`; daftar karyawan hanya untuk admin.
 
@@ -484,16 +485,150 @@ Boleh lihat laporan, riwayat shift, dan kelola produk — tapi **tidak** `produc
 
 **Catatan operasional:** `RoleSeeder` tidak jalan otomatis saat `php artisan migrate`. Role `manajer` harus dibuat **di dalam migrasi** (`Role::findOrCreate`) supaya ikut `migrate` — bukan mengandalkan langkah manual yang gampang terlupa di VPS.
 
-### Urutan commit
+### Urutan commit (sesuai dieksekusi)
 
-| # | Commit | Test baru |
-|---|--------|-----------|
-| 1 | `feat(users): kolom karyawan & status aktif` | — |
-| 2 | `feat(users): role manajer di registry` | AuthorizationTest tambahan |
-| 3 | `feat(users): UserService — sinkronisasi role & guard akun terakhir` | UserServiceTest |
-| 4 | `feat(users): blokir login & sesi user nonaktif` | UserActivationTest |
-| 5 | `feat(users): CRUD karyawan` | UserCrudTest |
-| 6 | `feat(users): profil sendiri (data & password)` | ProfileTest |
-| 7 | `docs: plan.md tahap 10` | — |
+| # | Hash | Commit | Test baru |
+|---|------|--------|-----------|
+| 1 | `8cd8bbe` | `feat(users): kolom karyawan & status aktif + guard hapus riwayat` | EmployeeProfileTest (6 + 2 MySQL-only) |
+| 2 | `6ceccca` | `feat(users): role manajer di registry + dibuat di migrasi` | ManajerRoleTest (6) |
+| 3 | `8777b67` | `feat(users): UserService — sinkronisasi role & guard akun terakhir` | UserServiceTest (12) |
+| 4 | `0315e64` | `feat(users): blokir login & sesi user nonaktif` | UserActivationTest (8) |
+| 5 | `942d3cc` | `feat(users): CRUD karyawan (admin saja) + slide-over` | UserCrudTest (20) |
+| 6 | `bb79892` | `feat(users): profil sendiri (data & password)` | ProfileTest (11) |
+| 7 | `3a0aec6` | `feat(users): tolak nonaktifkan karyawan yang shift-nya masih terbuka` | UserServiceTest +4, UserCrudTest +1 |
+| 8 | — | `docs: plan.md tahap 10` | — |
+
+**68 test baru**, suite bergerak dari 129 → 196 hijau.
 
 Dua halaman baru: `/users` (daftar karyawan, kartu + slide-over form persis pola `customers/index.blade.php`) dan `/profile` (ubah data diri & password sendiri — terbuka untuk semua karyawan tanpa `users.*`).
+
+### Jebakan yang benar-benar ditemukan saat eksekusi
+
+**1. `cascadeOnDelete` di tiga tabel menunjuk `users`**
+
+`shifts`, `transactions`, dan `suspended_transactions` semuanya dibuat dengan `cascadeOnDelete` — waktu itu users memang belum punya soft delete, jadi rasanya aman. Begitu kolom `deleted_at` ditambahkan, ketiganya berubah jadi ranjau: satu `forceDelete()` akan **menghapus seluruh riwayat keuangan toko**.
+
+Diperbaiki lewat migrasi terpisah yang mengganti `CASCADE` jadi `RESTRICT`, driver-aware (no-op di SQLite, aktif di MySQL) mengikuti pola `add_check_constraints_to_tables`. `audit_logs.user_id` sengaja dibiarkan `SET NULL` — jejak audit memang harus bertahan walaupun pelakunya hilang. Terverifikasi di MySQL sungguhan lewat `php artisan tinker`.
+
+**2. Default kolom tidak pernah sampai ke model hasil factory**
+
+`Eloquent` hanya mengembalikan atribut yang **ia kirim saat INSERT**; nilai yang diisi database tidak pernah masuk ke model. Karena itu `UserFactory` yang tidak menyetel `is_active` menghasilkan model dengan `is_active === null` — dan cast boolean tidak pernah sempat bekerja, sampai model dibaca ulang.
+
+Kebetulan ini berbahaya dua kali:
+
+- `is_active` → `EnsureUserIsActive` membaca `! $user->is_active`, sehingga user yang *sebetulnya aktif* bisa ditendang dari sesinya.
+- `shift_status` → guard `hasUnclosedShift()` membandingkan `=== 'open'`; `null === 'open'` diam-diam `false`, jadi guard bisa **gagal terbuka** untuk user yang tidak sengaja kehilangan atributnya.
+
+Keduanya kini ditulis eksplisit di factory, dengan komentar yang menjelaskan sebabnya supaya tidak dikembalikan ke "biar default database saja".
+
+**3. Nama karyawan disuntikkan ke dalam string JS**
+
+Tombol hapus awalnya ditulis begitu saja:
+
+```blade
+onclick="swalConfirm({ title: 'Hapus karyawan {{ $employee->name }}?' })"
+```
+
+`{{ }}` memang meng-escape HTML — tapi browser **menghapus escape-nya sebelum JavaScript diparse**. Nama `O'Brien` menghasilkan sintaks JS yang rusak dan tombol hapus mati diam-diam, tanpa error di mana pun.
+
+Dipindah ke atribut `data-*` lalu dibaca lewat `this.dataset.*`: nama selalu jadi *nilai* yang dilewatkan ke fungsi, tidak pernah menjadi bagian dari kode sumber.
+
+**4. Shift yatim — regresi yang diperkenalkan oleh Tahap 10 sendiri**
+
+Sebelum `EnsureUserIsActive`, kasir yang dinonaktifkan masih bisa login dan menutup shift-nya. Sesudah middleware itu, tidak lagi — dan `ShiftController::close` memakai `$request->user()`, sehingga **tidak ada satu pun jalur admin untuk menutup shift orang lain**.
+
+Akibatnya, menonaktifkan kasir yang shift-nya masih terbuka mengubur shift itu: `end_cash` tidak pernah dihitung, selisih kasnya tak pernah selesai, dan bila karyawan kelak diaktifkan kembali ia langsung membuka POS di atas shift berhari-hari yang lalu.
+
+Guard tambahan menuntut urutan kerja yang memang benar — hitung kas dulu, cabut akses kemudian — bukan melarang selamanya: setelah shift ditutup, penonaktifan berjalan normal.
+
+### Catatan pengujian
+
+- **Nama metode PHPUnit salah ketik.** Ditulis `assertDoesntMatchRegularExpression` (tidak ada); nama aslinya `assertDoesNotMatchRegularExpression`. Diganti `assertStringNotContainsString` — lebih pendek dan tidak bergantung pada versi PHPUnit.
+- **Ekspektasi alamat ditulis dari kepala, bukan dari payload.** Test membandingkan `Jl. Melati` padahal `validPayload()` mengirim `Jl. Melati No. 3`. Kodenya benar, asersinya yang salah.
+- **2 test MySQL-only baru** (guard `RESTRICT`) otomatis di-skip di SQLite, sama seperti guard CHECK sebelumnya. Verifikasinya dilakukan manual terhadap MySQL sungguhan.
+
+### Sengaja ditunda (bukan terlupa)
+
+- **Force-close shift orang lain oleh admin** — jalur yang ada saat ini: minta karyawan menutup shiftnya sendiri, baru nonaktifkan. Membuka force-close berarti admin menentukan sendiri `end_cash` untuk kas yang tidak dihitung pemiliknya, dan itu keputusan akuntansi yang tidak boleh dibuat diam-diam.
+- **Tombol pulihkan akun terhapus** — soft delete aktif (ADR-0026) dan riwayat tetap bernama lewat `withTrashed()`, tapi belum ada tombol *restore*. Kolom `deleted_at` sudah siap bila kelak dibutuhkan.
+- **Foto/avatar karyawan** — butuh mekanisme upload kedua (setelah logo Toko di Tahap 9) dan kolom tambahan; manfaatnya kecil untuk toko kecil.
+
+---
+
+## 🔔 TAHAP 11: Konfirmasi Hapus SweetAlert2 ✅ Selesai
+
+**Masalah.** AGENTS.md §5 mewajibkan konfirmasi aksi destruktif lewat SweetAlert2. Tiga halaman masih memakai `confirm()` bawaan browser:
+
+| Halaman | Aksi | Kondisi |
+|---------|------|---------|
+| `customers/index.blade.php` | hapus pelanggan | `onsubmit="return confirm(...)"` |
+| `products/index.blade.php` | hapus produk | `onsubmit="return confirm(...)"` |
+| `categories/index.blade.php` | hapus kategori | `onsubmit="return confirm(...)"` |
+| `transactions/index.blade.php` | void transaksi | `onsubmit="return confirm(...)"` — form membentang 2 baris (atribut ada di baris terpisah) |
+
+Alasannya bukan sekadar rapi:
+
+- **Aturan repo dilanggar** di 3 tempat. `/users` (Tahap 10) dan POS sudah benar. Aturan yang dilanggar diam-diam akan makin mudah ditiru developer berikutnya.
+- **Tampilan berbeda-beda tergantung browser.** Kasir menghapus produk lewat dialog POS, lalu menghapus kategori lewat dialog bawaan — satu aksi, dua tampilan.
+
+### Solusi — memakai helper yang sudah ada
+
+`swalConfirm({ title, text, url })` **sudah terpasang global** di `layouts/app.blade.php` (baris 119–135) dan dipakai `/users`. Helper itu membangun sendiri form POST berisi `@csrf` + `_method=DELETE`.
+
+Untuk halaman void, helper diberi **satu parameter opsional** `method` (default `DELETE`). Perubahan ini bersifat mundur kompatibel — pemanggil lama tidak perlu diubah sama sekali.
+
+```js
+function swalConfirm({ title, text, url, method = 'DELETE' }) {
+    // ...
+    form.innerHTML = '@csrf<input type="hidden" name="_method" value="' + method + '">';
+}
+```
+
+Perubahan per halaman hanya **satu baris**: judul dipindahkan ke atribut `data-*`, lalu helper dipanggil dari `onsubmit`.
+
+```blade
+onsubmit="swalConfirm({ title: this.dataset.title, url: this.action }); return false;" data-title="Hapus produk {{ $product->name }}?"
+```
+
+`this.action` membaca URL dari form, sehingga `url` tidak ditulis ulang — satu sumber, tidak mungkin menyalahi `action` form.
+
+### Empat jebakan
+
+| Jebakan | Solusi |
+|---------|--------|
+| **Nama disuntikkan ke dalam string JavaScript** | `{{ }}` hanya meng-escape **HTML**; browser mengembalikannya lagi saat membaca atribut, *sebelum* JS diparse. Nama berisi kutip tunggal (mis. `Kado 'Milo'`) memutus string JS yang dibungkus kutip tunggal dan tombol hapus mati tanpa error. Dengan `data-title`, nama selalu dibaca sebagai *nilai*, bukan bagian dari kode. Pola ini sudah terpasang di `/users`. |
+| **`swalConfirm()` memaksa `_method=DELETE`** | Rute `transactions.void` adalah **POST sungguhan** (tanpa `@method`). Memakai helper apa adanya mengubah request jadi DELETE → **405 Method Not Allowed**. Solusinya: tambah parameter opsional `method` pada helper, lalu panggil dengan `method: 'POST'` khusus di halaman void. **Nilai default wajib `DELETE`** — tanpanya `/users` dan tiga halaman yang baru dikonversi ikut patah, karena semuanya tiba-tiba terkirim sebagai POST dan ditolak rute DELETE. |
+| **`return false` wajib ada** | `swalConfirm()` bersifat asinkron — ia membentuk form baru di dalam `.then()` setelah tombol konfirmasi ditekan. Tanpa `return false`, form asli ikut terkirim seketika, lalu muncul Swal dan form kedua terkirim lagi: **transaksi tercatat dua kali**. |
+| **Form asli tidak pernah terkirim** | `swalConfirm()` membangun form **baru**. `action` form asli hanya dipakai sebagai sumber URL (`this.action`); `@csrf` dan `@method`-nya tidak pernah terkirim — yang terkirim adalah milik helper. Akibatnya menambah `@method('PUT')` pada form asli tidak mengubah apa pun. Jangan mencari ke sana saat mendebug. |
+
+### Keputusan desain
+
+Form tidak dihapus. Hanya atribut `onsubmit` yang diganti, sehingga `@csrf` dan `@method` tetap utuh sebagai fallback bila JS gagal dimuat — tombol tetap terkirim langsung, persis perilaku aslinya.
+
+### Commit
+
+| Commit | Isi |
+|--------|-----|
+| `9d8e9b3` | `feat(ui): konfirmasi destruktif seragam pakai SweetAlert2` — 5 file tampilan + `SweetAlertConsistencyTest` (5 test) |
+
+### Koreksi saat eksekusi
+
+Rencana awal mencatat bahwa void **sudah** memakai SweetAlert lewat `addEventListener`, dan bahwa baris `onsubmit`-nya hanya teks mati. Keduanya keliru. Halaman void ternyata murni memakai `confirm()` bawaan — tidak ada `Swal.fire` di mana pun — dan baris `onsubmit` itu atribut sungguhan yang menempel pada tag `<form>` yang membentang dua baris.
+
+Akibatnya berubah total: bukan sekadar membersihkan sisa kode, void benar-benar perlu dikonversi — dan karena routenya POST, konversinya menuntut parameter `method` pada helper. Tanpa koreksi ini, pekerjaan berhenti di tiga halaman dan AGENTS.md tetap dilanggar di keempatnya.
+
+### Test — `SweetAlertConsistencyTest`
+
+1. `test_native_browser_confirm_is_gone_from_every_destructive_page` — keempat halaman, `assertDontSee('onsubmit="return confirm(', false)`
+2. `test_every_destructive_page_offers_a_sweetalert_dialog` — keempat halaman `assertSee('swalConfirm(')`
+3. `test_void_form_asks_for_post_instead_of_delete` — halaman void memuat `method: 'POST'`; tanpanya ia terkirim sebagai DELETE dan berakhir 405
+4. `test_delete_forms_keep_their_csrf_and_method_spoofing` — memastikan konversi tidak merobek form; `name="_token"` dan `value="DELETE"` tetap ter-render
+5. `test_a_name_with_quotes_renders_safely_into_data_title` — kategori bernama `Kado 'Milo'` tetap merender tombol, dan nama muncul sebagai `data-title="Hapus kategori Kado &#039;Milo&#039;?"` (nilai ter-escape), bukan di dalam string JS. Kutip tunggal dipilih karena dialah yang memutus string JS ber-single-quote; kutip ganda tidak merusak apa pun.
+
+Test ke-5 adalah satu-satunya yang bisa menangkap jebakan injeksi — empat lainnya lolos bahkan kalau nama disuntikkan ke string JS.
+
+---
+
+## 🚀 DEPLOYMENT
+
+Tahap 1–11 selesai dan ter-commit. Deployment (VPS/Nginx) menunggu verifikasi akses GitHub & VPS dari Anda — 27+ commit lokal masih belum ter-push karena repo `github.com/tbintang889/pos-lapet` menjawab 404.
