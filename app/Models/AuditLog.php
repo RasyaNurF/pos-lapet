@@ -30,11 +30,15 @@ class AuditLog extends Model
     }
 
     /**
+     * `withTrashed()` supaya kasir yang sudah dihapus tetap tampil namanya
+     * di riwayat shift, transaksi, dan audit. Tanpa ini, begitu akun dihapus
+     * seluruh sejarah penjualan langsung kehilangan identitas pelakunya.
+     *
      * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
     /**

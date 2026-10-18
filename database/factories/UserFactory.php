@@ -30,6 +30,16 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+
+            /*
+             | Ditetapkan eksplisit, bukan diserahkan ke default database.
+             |
+             | Eloquent hanya mengembalikan atribut yang ia kirim saat INSERT;
+             | nilai yang diisi database tidak pernah masuk ke model hasil
+             | factory. Akibatnya $user->is_active terbaca null dan cast
+             | boolean tidak pernah sempat bekerja, sampai model dibaca ulang.
+             */
+            'is_active' => true,
         ];
     }
 
