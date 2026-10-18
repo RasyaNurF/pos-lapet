@@ -54,6 +54,9 @@
                 @can('reports.view')
                     <li><a href="{{ route('reports.stock') }}" class="{{ request()->routeIs('reports.stock') ? 'active' : '' }}">📉 Stok Menipis</a></li>
                 @endcan
+                @can('audit.view')
+                    <li><a href="{{ route('audit-logs.index') }}" class="{{ request()->routeIs('audit-logs.*') ? 'active' : '' }}">🧾 Audit Log</a></li>
+                @endcan
             </ul>
         </aside>
 

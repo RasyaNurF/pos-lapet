@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
@@ -83,4 +84,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/reports/export', [ReportController::class, 'export'])
         ->middleware('permission:reports.export')
         ->name('reports.export');
+
+    // Jejak audit (Layer 5 Operational Guard) — hanya role dengan audit.view.
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])
+        ->middleware('permission:audit.view')
+        ->name('audit-logs.index');
 });

@@ -7,12 +7,17 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\UpdateCustomerRequest;
 use App\Models\Customer;
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class CustomerController extends Controller
 {
+    public function __construct(
+        private readonly AuditLogger $audit,
+    ) {}
+
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Customer::class);
@@ -30,7 +35,9 @@ class CustomerController extends Controller
     {
         $this->authorize('create', Customer::class);
 
-        Customer::create($request->validated());
+        $customer = Customer::create($request->validated());
+
+        $this->audit->log('customer.create', $customer, null, $customer->only(['name', 'phone', 'email']));
 
         return back()->with('success', 'Pelanggan berhasil ditambahkan.');
     }
@@ -39,7 +46,10 @@ class CustomerController extends Controller
     {
         $this->authorize('update', $customer);
 
+        $old = $customer->only(['name', 'phone', 'email']);
         $customer->update($request->validated());
+
+        $this->audit->log('customer.update', $customer, $old, $customer->only(['name', 'phone', 'email']));
 
         return back()->with('success', 'Pelanggan berhasil diperbarui.');
     }
@@ -48,7 +58,10 @@ class CustomerController extends Controller
     {
         $this->authorize('delete', $customer);
 
+        $snapshot = $customer->only(['name', 'phone', 'email']);
         $customer->delete();
+
+        $this->audit->log('customer.delete', $customer, $snapshot, null);
 
         return back()->with('success', 'Pelanggan berhasil dihapus.');
     }

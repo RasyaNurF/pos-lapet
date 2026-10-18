@@ -23,6 +23,10 @@ class TransactionService
         TransactionPayment::METHOD_QRIS,
     ];
 
+    public function __construct(
+        private readonly AuditLogger $audit,
+    ) {}
+
     /**
      * Proses checkout: simpan header, item (snapshot), pembayaran, potong stok.
      *
@@ -215,6 +219,14 @@ class TransactionService
 
             // Kurangi total sales shift jika shift masih terbuka.
             $locked->shift?->decrement('total_sales', $locked->total);
+
+            $this->audit->log(
+                'transaction.void',
+                $locked,
+                ['status' => Transaction::STATUS_COMPLETED],
+                ['status' => Transaction::STATUS_VOIDED, 'reason' => $reason],
+                $by,
+            );
 
             return $locked->refresh();
         });

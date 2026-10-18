@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\DB;
  */
 class ProductService
 {
+    public function __construct(
+        private readonly AuditLogger $audit,
+    ) {}
+
     /**
      * Buat produk baru beserta varian default (jika nama varian diisi).
      *
@@ -43,6 +47,10 @@ class ProductService
                 ]);
             }
 
+            $this->audit->log('product.create', $product, null, $product->only(
+                ['sku', 'name', 'category_id', 'base_price', 'base_cost', 'stock_alert', 'is_active'],
+            ));
+
             return $product;
         });
     }
@@ -54,6 +62,8 @@ class ProductService
      */
     public function update(Product $product, array $data): Product
     {
+        $original = $product->getOriginal();
+
         $product->update([
             'sku' => $data['sku'],
             'name' => $data['name'],
@@ -64,15 +74,42 @@ class ProductService
             'is_active' => (bool) ($data['is_active'] ?? true),
         ]);
 
+        $changes = $this->audit->changes($product, $original);
+
+        if ($changes['old'] !== []) {
+            $this->audit->log('product.update', $product, $changes['old'], $changes['new']);
+        }
+
+        return $product;
+    }
+
+    /**
+     * Hapus produk (soft delete — ADR-0026) beserta jejak auditnya.
+     */
+    public function delete(Product $product): Product
+    {
+        $snapshot = $product->only(['sku', 'name', 'base_price', 'base_cost']);
+
+        $product->delete();
+
+        $this->audit->log('product.delete', $product, $snapshot, null);
+
         return $product;
     }
 
     /**
      * Simpan nilai stok varian (mutasi stok dari halaman admin).
+     *
+     * Celah fraud internal bila tidak dicatat: kasir bisa menaikkan stok sendiri
+     * tanpa jejak. Sekarang selalu tercatat old → new + pelaku.
      */
     public function updateVariantStock(ProductVariant $variant, int $stock): ProductVariant
     {
+        $oldStock = (int) $variant->stock;
+
         $variant->update(['stock' => $stock]);
+
+        $this->audit->log('stock.adjust', $variant, ['stock' => $oldStock], ['stock' => $stock]);
 
         return $variant;
     }

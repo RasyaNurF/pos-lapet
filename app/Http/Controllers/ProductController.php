@@ -60,7 +60,7 @@ class ProductController extends Controller
     {
         $this->authorize('delete', $product);
 
-        $product->delete(); // soft delete (ADR-0026)
+        $this->productService->delete($product);
 
         return back()->with('success', 'Produk berhasil dihapus.');
     }

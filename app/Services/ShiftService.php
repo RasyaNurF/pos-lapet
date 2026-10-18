@@ -12,6 +12,10 @@ use RuntimeException;
 
 class ShiftService
 {
+    public function __construct(
+        private readonly AuditLogger $audit,
+    ) {}
+
     /**
      * Buka shift kasir.
      *
@@ -44,6 +48,8 @@ class ShiftService
             ]);
 
             $lockedUser->update(['shift_status' => 'open']);
+
+            $this->audit->log('shift.open', $shift, null, ['start_cash' => $startCash]);
 
             return $shift;
         });
@@ -98,10 +104,21 @@ class ShiftService
 
             $lockedUser->update(['shift_status' => 'closed']);
 
+            $difference = $endCash - $expectedCash;
+
+            $this->audit->log('shift.close', $lockedShift, [
+                'end_time' => null,
+                'end_cash' => null,
+            ], [
+                'end_cash' => $endCash,
+                'expected_cash' => $expectedCash,
+                'difference' => $difference,
+            ]);
+
             return [
                 'shift' => $lockedShift,
                 'expected_cash' => $expectedCash,
-                'difference' => $endCash - $expectedCash,
+                'difference' => $difference,
             ];
         });
     }

@@ -48,6 +48,10 @@ return [
             'label' => 'Laporan',
             'actions' => ['view', 'export'],
         ],
+        'audit' => [
+            'label' => 'Audit Log',
+            'actions' => ['view'],
+        ],
         'users' => [
             'label' => 'Pengguna',
             'actions' => ['view', 'create', 'update', 'delete'],
