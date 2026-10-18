@@ -1,3 +1,51 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * SweetAlert2 — tombol OK/Batal tidak terlihat (teks putih di atas popup putih).
+ *
+ * Penyebabnya bukan CSS SweetAlert2 hilang, melainkan *specificity war*:
+ *
+ *   Preflight Tailwind : button,[type=button],[type=reset],[type=submit]
+ *                        { background-color:#0000 }          -> (0,1,0) [attribute]
+ *   SweetAlert2 v11    : div:where(.swal2-container)
+ *                        button:where(.swal2-styled):where(.swal2-confirm)
+ *                        { background-color:var(--swal2-confirm-button-background-color) }
+ *                                                               -> (0,0,2) [semua class di dalam :where() = 0]
+ *
+ * (0,1,0) mengalahkan (0,0,2), sehingga background tombol dipaksa transparan,
+ * padahal warna teksnya tetap #fff. Hasilnya tombol ada di DOM (menempati ruang)
+ * tapi "tak kasat mata".
+ *
+ * Kita nyatakan ulang dengan selector yang lebih spesifik. Warna tetap diambil
+ * dari CSS custom property milik SweetAlert2, jadi opsi `confirmButtonColor` /
+ * `cancelButtonColor` / `denyButtonColor` pada Swal.fire() tetap berlaku.
+ */
+div:where(.swal2-container) button.swal2-styled {
+    background-color: var(--swal2-confirm-button-background-color, #16a34a);
+}
+
+div:where(.swal2-container) button.swal2-styled.swal2-cancel {
+    background-color: var(--swal2-cancel-button-background-color, #6b7280);
+}
+
+div:where(.swal2-container) button.swal2-styled.swal2-deny {
+    background-color: var(--swal2-deny-button-background-color, #dc2626);
+}
+
+/*
+ * SweetAlert2 memakai color-mix() untuk state hover/active, tapi rule-nya juga
+ * ber-specificity (0,0,2) sehingga kalah dari rule dasar di atas. Kita ganti
+ * dengan filter — satu rule untuk semua tombol aksi, dan aman di tablet
+ * (tidak bergantung pada hover untuk fungsi utama).
+ */
+@media (hover: hover) {
+    div:where(.swal2-container) button.swal2-styled:hover {
+        filter: brightness(0.92);
+    }
+}
+
+div:where(.swal2-container) button.swal2-styled:active {
+    filter: brightness(0.85);
+}

@@ -144,3 +144,47 @@ $table->unsignedInteger('version')->default(1);
 - [ ] `php artisan test` hijau sebelum deploy
 - [ ] Seed awal: `php artisan migrate --seed` (akun admin diganti password defaultnya)
 - [ ] Monitoring uptime aktif, notifikasi masuk ke kanal yang diawasi orang
+
+---
+
+## 7. Jebakan frontend yang sudah diketahui
+
+### 7.1 Tombol SweetAlert2 transparan (sudah diperbaiki)
+
+**Gejala:** dialog muncul, judul & isi terbaca, tapi tombol **Ya/Batal tidak terlihat**
+padahal sudah ada di DOM (ruang kosong di bawah teks). Pernah terjadi pada
+"Tutup shift sekarang?" (Tahap 7).
+
+**Akar masalah — bukan CSS SweetAlert2 hilang, melainkan perang *specificity*:**
+
+```css
+/* Preflight Tailwind (resources/css/app.css → @tailwind base) */
+button,[type=button],[type=reset],[type=submit]{background-color:#0000}
+/* specificity: attribute selector = 0-1-0  */
+
+/* SweetAlert2 v11 — semua class dibungkus :where(), jadi bernilai 0 */
+div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm){
+  background-color: var(--swal2-confirm-button-background-color);
+}
+/* specificity: hanya 2 elemen = 0-0-2  */
+```
+
+`0-1-0` mengalahkan `0-0-2` → `background-color` dipaksa transparan, sementara
+warna teks tetap `#fff`. Hasilnya **tombol putih di atas popup putih**.
+
+**Perbaikan:** dideklarasikan ulang di `resources/css/app.css` dengan selector
+lebih spesifik (`div:where(.swal2-container) button.swal2-styled`, yaitu `0-1-2`).
+Warna tetap diambil dari CSS custom property milik SweetAlert2, sehingga
+`confirmButtonColor` / `cancelButtonColor` pada `Swal.fire()` tetap berlaku.
+
+**Aturan main untuk jebakan serupa:** setiap library CSS pihak ketiga yang
+dibundel lewat `@tailwind base`/`components` berisiko **kalah specificity dari
+Preflight**. Bila ada elemen library itu tampak "hilang tapi menempati ruang",
+periksa Preflight lebih dulu — jangan langsang curiga CSS gagal dimuat.
+
+### 7.2 Checklist verifikasi visual
+
+- [ ] `npm run build` setelah mengubah `resources/css/app.css`
+- [ ] Uji ulang **semua** dialog SweetAlert2 (notifikasi sukses/error POS, konfirmasi
+      hapus keranjang, tutup shift) — perbaikan di §7.1 bersifat global, bukan
+      khusus dialog tutup shift
