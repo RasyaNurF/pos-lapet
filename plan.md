@@ -8,7 +8,7 @@
 > - [x] TAHAP 6 — Minimum Enterprise Guard (selesai; 71 test hijau, 2 skip MySQL-only, pint bersih)
 > - [x] TAHAP 7 — Navigasi & Tutup Shift (selesai; POS bukan lagi jalan buntu)
 > - [x] TAHAP 8 — Laporan Selisih Kas (selesai; 87 test hijau, 2 skip MySQL-only)
-> - [ ] TAHAP 9 — Store Config (rencana; fondasi pengaturan toko — mengganti hardcode nama/PPN/mata uang)
+> - [x] TAHAP 9 — Store Config (selesai; 129 test hijau, 2 skip MySQL-only, pint bersih, `npm run build` sukses)
 > - [ ] TAHAP 10 — Modul Karyawan (rencana; CRUD user + role manajer)
 > - [ ] Deployment (VPS/Nginx) — belum dikerjakan
 >
@@ -310,7 +310,7 @@ Riwayat memakai **`reports.view`**, bukan `shifts.view`. Kasir memang punya `shi
 
 Verifikasi akhir: 87 test hijau (2 skip MySQL-only), pint bersih 103 file, `npm run build` sukses. Backfill teruji langsung di MySQL.
 
-## 🏪 TAHAP 9: Store Config — fondasi 📋 Rencana
+## 🏪 TAHAP 9: Store Config — fondasi ✅ Selesai
 Tujuan: nama toko, PPN, dan format mata uang saat ini **di-hardcode di dalam kode dan view**. Mengubah PPN berarti menyunting file PHP dan build ulang ulang. Tahap ini membangun lapisan pengaturan yang bisa diubah admin lewat UI, sekaligus menjadi fondasi untuk tahap berikutnya.
 
 Referensi: modul Store Config pada sistem POS lain (tab Information, General, Localisation).
@@ -331,13 +331,23 @@ Fondasi yang hilang: **tabel `settings` tidak ada sama sekali**. Tanpa itu, form
 **Registry `config/settings.php`** — meniru pola `config/modules.php` yang sudah dipakai repo ini untuk permission, bukan skema asing:
 
 ```php
-'company.name' => [
+'company_name' => [
     'default' => 'LA PET GALLERY',
     'group'   => 'information',
     'label'   => 'Nama Toko',
+    'type'    => 'text',              // dipakai view untuk memilih input
     'rules'   => ['required', 'string', 'max:120'],
 ],
 ```
+
+> **Key wajib garis bawah, bukan titik.** Rancangan awal memakai `company.name`, lalu ditemukan saat eksekusi: validator Laravel menafsirkan titik sebagai akses array bersarang, sehingga rule `company.name` mencari `$data['company']['name']` dan tidak akan pernah menemukan input datar `company.name`. Akibatnya **semua rule `required` gagal diam-diam** padahal datanya sudah benar. Dibuktikan langsung:
+>
+> ```php
+> Validator::make(['company.name' => 'x'], ['company.name' => 'required'])->fails();        // true
+> Validator::make(['company.name' => 'x'], ['company.name' => 'required'])->getValue('company.name');  // null
+> ```
+>
+> Jebakan yang sama juga menjegal `safe()->only()` (memakai `data_get`). Karena itu titik hanya dipakai untuk permission (`products.view`) yang tidak pernah melewati validator.
 
 Tabel key-value (`key` unique, `value` text nullable). Alasannya: store config cenderung bertambah, dan key-value memungkinkan menambah pengaturan **tanpa migrasi**. Validasi tipe dipegang registry, bukan database — supaya `tax.rate` tidak bisa menerima string sembarangan.
 
@@ -365,15 +375,60 @@ Tidak ditemukan `Storage::`, `hasFile()`, maupun `storeAs()` di seluruh `app/`. 
 
 Konsekuensinya jalur logo dibangun dari nol, termasuk `php artisan storage:link` yang **wajib dijalankan di VPS** dan masuk ke checklist rilis `OPERATIONS.md` — kalau tidak, logonya hanya 404 di produksi.
 
-### Urutan commit
+### Urutan commit (sesuai dieksekusi)
 
-| # | Commit | Test baru |
-|---|--------|-----------|
-| 1 | `feat(settings): tabel settings + registry + SettingService` | SettingServiceTest |
-| 2 | `feat(settings): helper format uang (hapus hardcode number_format)` | MoneyFormatTest |
-| 3 | `feat(settings): PPN & diskon default configurable + tarif per transaksi` | TaxConfigTest |
-| 4 | `feat(settings): halaman /settings — Information, General, Localisation` | SettingsPageTest |
-| 5 | `docs: plan.md tahap 9` | — |
+| # | Hash | Commit | Test baru |
+|---|------|--------|-----------|
+| 1 | `61d988b` | `feat(settings): tabel settings + registry + SettingService` | SettingServiceTest (9) |
+| 2 | `4b52145` | `feat(settings): helper format uang, hapus hardcode number_format (38 tempat)` | MoneyFormatTest (7) |
+| 3 | `913aec7` | `feat(settings): PPN & diskon default configurable, tarif per transaksi` | ConfigurableTaxTest (15) |
+| 4 | `3f6f957` | `feat(settings): halaman /settings — Informasi, Umum, Lokalisasi` | SettingPageTest (11) |
+| 5 | — | `docs: plan.md tahap 9` | — |
+
+### Jebakan yang benar-benar ditemukan saat eksekusi
+
+Empat di antaranya tidak terlihat dari perencanaan — semuanya **gagal diam-diam**, bukan melempar error.
+
+**1. Accessor Eloquent mati total karena return type & nama metode**
+
+`Transaction::tax_rate_label` harus tampil di struk. Ditulis `protected function taxRateLabelAttribute(): string`, hasilnya `null` — tanpa error. Dua syarat tersembunyi:
+
+- Nama metode harus **`taxRateLabel()`** (hasil `Str::camel($key)`), **tanpa** akhiran `Attribute`, dan tanpa pola lama `getTaxRateLabelAttribute`.
+- Return type harus **`Attribute`**, bukan `string`.
+
+Keduanya diperiksa di `HasAttributes::hasAttributeMutator()` (baris 685 & 691–693). Salah satu saja → accessor dilewati dan `getAttribute()` diam-diam jatuh ke `getRelationValue()` yang mengembalikan `null`.
+
+```php
+protected function taxRateLabel(): Attribute
+{
+    return Attribute::get(fn (): string => SaleCalculator::formatRate((float) $this->tax_rate));
+}
+```
+
+**2. `tax.rate` bertipe int memotong tarif pecahan**
+
+Tipe nilai ditentukan tipe `default`. `default => 11` (int) membuat `normalize()` menghitung `(string) (int) '11.5'` → `'11'`. Tarif 11,5% hilang senyap. Diperbaiki jadi `11.0`.
+
+**3. Preview POS vs tagihan backend bisa berbeda**
+
+Rumus PPN sebelumnya ditulis dua kali: di `PosTerminal::tax()` (tampilan) dan `TransactionService` (yang dibebankan). Kalau keduanya dikonfigurasi terpisah, lama-lama akan berbeda dan selisihnya langsung jadi kerugian uang nyata. Karena itu dibuat **`SaleCalculator`** — satu-satunya sumber rumus, dipakai kedua sisi. Test `test_pos_preview_matches_backend_*` mengunci kesetaraan ini.
+
+**4. Checkbox tanpa hidden input `0` tidak bisa dimatikan**
+
+`tax_included` adalah boolean. Tanpa `<input type="hidden" name="tax_included" value="0">` sebelum checkbox, saat tidak dicentang browser mengirim apa pun, rule `boolean` melewatinya, dan nilai lama tidak pernah bisa dimatikan dari UI. Diuji dua arah di `test_tax_included_checkbox_can_be_turned_on_and_off`.
+
+**5. Berkas logo jadi yatim**
+
+Cabang "hapus logo" awalnya hanya mengosongkan kolom `company_logo` tanpa menghapus berkasnya — file lama menumpuk di disk tanpa pernah terlihat siapa pun. Diperbaiki lewat `deleteLogo()` yang dipakai baik saat mengganti maupun menghapus.
+
+### Catatan pengujian
+
+Beberapa ekspektasi test ditulis salah pada percobaan pertama — bukan karena kodenya keliru:
+
+- `100 + 11 = 111`, bukan 121. Jadi PPN termasuk harga dari `1.110.000` tepat `110.000`, bukan `10.000` dari `110.000`.
+- `100.000 + 11.000 − 10.000 = 101.000`, bukan `99.000`.
+
+Test uang sebaiknya memakai subtotal yang habis dibagi, supaya hasilnya bisa diverifikasi mata tanpa pembulatan.
 
 ### Test yang akan ditulis
 

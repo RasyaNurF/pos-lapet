@@ -143,6 +143,7 @@ $table->unsignedInteger('version')->default(1);
 - [ ] SSL terpasang & auto-renew
 - [ ] `php artisan test` hijau sebelum deploy
 - [ ] Seed awal: `php artisan migrate --seed` (akun admin diganti password defaultnya)
+- [ ] `php artisan storage:link` — **tanpa ini logo toko 404 di produksi**. Aplikasi tidak pernah memakai `Storage::` sebelum Tahap 9, jadi symlink-nya tidak pernah dibuat. Cek `public/storage` benar-benar mengarah ke `storage/app/public`.
 - [ ] Monitoring uptime aktif, notifikasi masuk ke kanal yang diawasi orang
 
 ---
