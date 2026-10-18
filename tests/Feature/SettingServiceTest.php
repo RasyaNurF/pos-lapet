@@ -56,7 +56,9 @@ class SettingServiceTest extends TestCase
         $this->assertEquals(12, $fresh->get('tax.rate'));
         $this->assertTrue($fresh->get('tax.included'));
         $this->assertEquals(2, $fresh->get('currency.decimals'));
-        $this->assertIsInt($fresh->get('tax.rate'));
+
+        // Tarif PPN float, bukan int — integer akan memotong 11.5% jadi 11%.
+        $this->assertIsFloat($fresh->get('tax.rate'));
         $this->assertIsBool($fresh->get('tax.included'));
     }
 

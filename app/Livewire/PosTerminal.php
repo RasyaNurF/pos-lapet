@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SuspendedTransaction;
 use App\Models\TransactionPayment;
+use App\Services\SaleCalculator;
 use App\Services\TransactionService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
@@ -84,16 +85,28 @@ class PosTerminal extends Component
         return collect($this->cart)->sum(fn (array $item): int => $item['price'] * $item['qty']);
     }
 
+    /**
+     * PPN preview — rumus yang SAMA dengan TransactionService (SaleCalculator).
+     */
     #[Computed]
     public function tax(): int
     {
-        return (int) round($this->subtotal * 0.11); // PPN 11%
+        return app(SaleCalculator::class)->taxFor($this->subtotal);
     }
 
     #[Computed]
     public function total(): int
     {
-        return max(0, $this->subtotal + $this->tax - $this->discount);
+        return app(SaleCalculator::class)->totalFor($this->subtotal, $this->tax, $this->discount);
+    }
+
+    /**
+     * Tarif PPN yang berlaku sekarang, siap tampil — mis. "11" atau "11.5".
+     */
+    #[Computed]
+    public function taxRate(): string
+    {
+        return SaleCalculator::formatRate(app(SaleCalculator::class)->taxRate());
     }
 
     #[Computed]
@@ -132,6 +145,10 @@ class PosTerminal extends Component
             return;
         }
 
+        // Sebelum dimutasi — diskon default hanya diberlakukan saat keranjang
+        // baru berubah dari kosong menjadi terisi.
+        $wasEmpty = $this->cart === [];
+
         if (isset($this->cart[$variantId])) {
             $this->cart[$variantId]['qty']++;
         } else {
@@ -141,6 +158,18 @@ class PosTerminal extends Component
                 'price' => $variant->price,
                 'qty' => 1,
             ];
+        }
+
+        /*
+         * Pratinjau diskon default toko, hanya bila kasir belum mengisi apa pun.
+         *
+         * Karena syaratnya $wasEmpty, item inilah SATU-SATUNYA isi keranjang,
+         * sehingga subtotal = harga x qty baris ini. Membaca $this->subtotal
+         * malah berbahaya: computed-nya masih menyimpan nilai lama dari cache.
+         */
+        if ($wasEmpty && $this->discount === 0) {
+            $this->discount = app(SaleCalculator::class)
+                ->defaultDiscountFor($variant->price * $this->cart[$variantId]['qty']);
         }
 
         $this->resetComputedCache();
@@ -395,6 +424,7 @@ class PosTerminal extends Component
         unset(
             $this->subtotal,
             $this->tax,
+            $this->taxRate,
             $this->total,
             $this->change,
             $this->cartCount,

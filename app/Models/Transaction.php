@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\SaleCalculator;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,7 +18,7 @@ class Transaction extends Model
 
     protected $fillable = [
         'invoice_no', 'client_token', 'customer_id', 'user_id', 'shift_id', 'subtotal', 'discount',
-        'tax', 'total', 'status', 'notes', 'voided_at', 'voided_by',
+        'tax', 'tax_rate', 'total', 'status', 'notes', 'voided_at', 'voided_by',
     ];
 
     protected function casts(): array
@@ -25,9 +27,30 @@ class Transaction extends Model
             'subtotal' => 'integer',
             'discount' => 'integer',
             'tax' => 'integer',
+            'tax_rate' => 'decimal:2',
             'total' => 'integer',
             'voided_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Tarif PPN transaksi ini, siap tampil di struk — mis. "11" atau "11.5".
+     *
+     * Diambil dari kolom SNAPSHOT, bukan dari pengaturan sekarang. Kalau admin
+     * mengubah PPN minggu depan, struk lama harus tetap menampilkan tarif yang
+     * benar-benar dipakai saat itu, bukan tarif yang baru.
+     *
+     * Return type HARUS Attribute, dan namanya taxRateLabel (tanpa akhiran
+     * "Attribute"). HasAttributes::hasAttributeMutator memanggil
+     * Str::camel($key) apa adanya — bukan getTaxRateLabelAttribute maupun
+     * taxRateLabelAttribute — jadi nama yang salah membuat accessor DIABAIKAN
+     * diam-diam dan mengembalikan null, tanpa error sama sekali.
+     */
+    protected function taxRateLabel(): Attribute
+    {
+        return Attribute::get(
+            fn (): string => SaleCalculator::formatRate((float) $this->tax_rate),
+        );
     }
 
     /**

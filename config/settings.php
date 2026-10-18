@@ -86,11 +86,14 @@ return [
         | `tax.rate` menggantikan hardcode `0.11` di TransactionService
         | dan PosTerminal. `tax.included` mengubah CARA PPN dihitung:
         | aktif -> PPN dikeluarkan dari subtotal, bukan ditambahkan.
+        |
+        | default ditulis 11.0 (bukan 11): tipe default menentukan tipe nilai,
+        | dan integer akan memotong tarif pecahan 11.5% menjadi 11%.
         */
         'tax.rate' => [
             'group' => 'general',
             'label' => 'Tarif PPN (%)',
-            'default' => 11,
+            'default' => 11.0,
             'rules' => ['required', 'numeric', 'min:0', 'max:100'],
         ],
         'tax.included' => [
@@ -102,7 +105,7 @@ return [
         'sales.default_discount' => [
             'group' => 'general',
             'label' => 'Diskon Penjualan Default (%)',
-            'default' => 0,
+            'default' => 0.0,
             'rules' => ['required', 'numeric', 'min:0', 'max:100'],
         ],
 

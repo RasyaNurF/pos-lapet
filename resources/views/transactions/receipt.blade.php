@@ -36,7 +36,7 @@
     @if($transaction->discount > 0)
         <div class="flex justify-between"><span>Diskon</span><span>-@money($transaction->discount)</span></div>
     @endif
-    <div class="flex justify-between"><span>Pajak (11%)</span><span>@money($transaction->tax)</span></div>
+    <div class="flex justify-between"><span>Pajak ({{ $transaction->tax_rate_label }}%)</span><span>@money($transaction->tax)</span></div>
     <div class="flex justify-between font-bold text-sm"><span>TOTAL</span><span>@money($transaction->total)</span></div>
 
     <div class="border-t border-dashed border-black my-1"></div>

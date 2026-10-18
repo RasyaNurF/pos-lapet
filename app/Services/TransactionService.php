@@ -25,6 +25,7 @@ class TransactionService
 
     public function __construct(
         private readonly AuditLogger $audit,
+        private readonly SaleCalculator $calculator,
     ) {}
 
     /**
@@ -109,8 +110,14 @@ class TransactionService
                 // Layer 1: batasi diskon maksimal subtotal (total tidak pernah negatif).
                 $discount = min($discount, $subtotal);
 
-                $tax = (int) round($subtotal * 0.11); // PPN 11%
-                $total = max(0, $subtotal + $tax - $discount);
+                /*
+                 * PPN & total diambil dari SATU kalkulator yang juga dipakai
+                 * preview POS. Dua rumus terpisah = suatu saat pasti berbeda,
+                 * dan selisihnya langsung jadi kerugian uang nyata.
+                 */
+                $taxRate = $this->calculator->taxRate();
+                $tax = $this->calculator->taxFor($subtotal);
+                $total = $this->calculator->totalFor($subtotal, $tax, $discount);
 
                 if ($paymentMethod === TransactionPayment::METHOD_CASH && $amountTendered < $total) {
                     throw new RuntimeException('Uang diterima kurang dari total belanja.');
@@ -125,6 +132,9 @@ class TransactionService
                     'subtotal' => $subtotal,
                     'discount' => $discount,
                     'tax' => $tax,
+                    // Snapshot tarif berlaku: mengubah pengaturan PPN nanti tidak
+                    // mengubah riwayat struk lama.
+                    'tax_rate' => $taxRate,
                     'total' => $total,
                     'status' => Transaction::STATUS_COMPLETED,
                 ]);

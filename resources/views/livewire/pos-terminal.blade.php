@@ -156,7 +156,7 @@
                 <span class="font-mono">@money($this->subtotal)</span>
             </div>
             <div class="flex justify-between text-base mb-1">
-                <span>Pajak (11%)</span>
+                <span>Pajak ({{ $this->taxRate }}%)</span>
                 <span class="font-mono">@money($this->tax)</span>
             </div>
             <div class="flex justify-between text-xl font-bold mb-3 border-t border-base-300 pt-2">
