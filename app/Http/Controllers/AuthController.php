@@ -44,6 +44,19 @@ class AuthController extends Controller
 
         $remember = $request->boolean('remember');
 
+        /*
+         * Akun nonaktif tidak boleh masuk sama sekali.
+         *
+         * `is_active` ikut jadi syarat attempt — bukan dicek terpisah sesudah
+         * login — supaya tidak ada jendela sesaat di mana user nonaktif sudah
+         * ter-authenticate tetapi belum tersaring.
+         *
+         * Pesan sengaja disamakan dengan kredensial salah. Pesan berbeda akan
+         * memberi tahu siapa pun bahwa alamat email tertentu terdaftar dan
+         * sedang dinonaktifkan — penggunaan klasik untuk user enumeration.
+         */
+        $credentials['is_active'] = true;
+
         if (! Auth::attempt($credentials, $remember)) {
             RateLimiter::hit($throttleKey, 60);
 

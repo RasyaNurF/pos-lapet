@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureShiftOpen;
+use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,6 +21,16 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'shift.open' => EnsureShiftOpen::class,
         ]);
+
+        /*
+         | Penonaktifan berlaku di mana pun, jadi ditempel ke seluruh grup `web`.
+         |
+         | Berbeda dengan `shift.open` yang sengaja per-rute (hanya POS yang
+         | butuh shift terbuka), mencatatkan middleware ini per-rute membuka
+         | celah yang tidak terlihat: satu rute lupa diberi alias, sesi user
+         | nonaktif tetap hidup di sana.
+         */
+        $middleware->web(append: [EnsureUserIsActive::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
