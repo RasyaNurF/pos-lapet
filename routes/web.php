@@ -8,6 +8,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShiftController;
@@ -112,4 +113,9 @@ Route::middleware('auth')->group(function (): void {
     Route::put('/settings', [SettingController::class, 'update'])
         ->middleware('permission:settings.update')
         ->name('settings.update');
+
+    // Profil sendiri — terbuka bagi semua karyawan, sengaja TANPA permission
+    // users.*; cukup `auth` dari grup ini.
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.show');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 });

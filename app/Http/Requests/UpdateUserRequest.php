@@ -59,18 +59,23 @@ class UpdateUserRequest extends FormRequest
     }
 
     /**
-     * Form edit selalu mengirim kolom password (meski kosong).
+     * Kolom password form edit selalu ikut terkirim, meski kosong.
      *
-     * `''` tidak dianggap `nullable` oleh validator, jadi tanpa normalisasi ini
-     * kolom kosong akan gagal aturan `min:8` — edit profil menjadi mustahil
-     * selama password tidak ikut diganti. Kedua kolom dinolkan bersama karena
-     * aturan `confirmed` membandingkan password dengan password_confirmation:
-     * menolak satu saja mengubah `''` jadi null sementara pasangannya tetap
-     * `''`, dan keduanya akan dianggap tidak sama.
+     * Global middleware `ConvertEmptyStringsToNull` biasanya sudah mengubah
+     * `''` jadi null sebelum FormRequest ini jalan, sehingga aturan `nullable`
+     * berlaku dan `confirmed` membandingkan null dengan null. Normalisasi
+     * eksplisit dipertahankan supaya aturan ini tidak diam-diam bergantung
+     * pada konfigurasi middleware global: bila middleware itu suatu saat
+     * dilepas, kolom kosong akan mulai gagal `min:8` — dan gejalanya cuma
+     * "edit profil tidak bisa disimpan", tanpa sebab yang jelas.
+     *
+     * Kedua kolom dinolkan bersama karena `confirmed` membandingkan password
+     * dengan password_confirmation; menolak satu saja membuat keduanya
+     * dianggap tidak sama.
      */
     protected function prepareForValidation(): void
     {
-        if ($this->input('password') === '') {
+        if ($this->input('password') === '' || $this->input('password') === null) {
             $this->merge([
                 'password' => null,
                 'password_confirmation' => null,

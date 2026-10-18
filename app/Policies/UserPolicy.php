@@ -33,6 +33,18 @@ class UserPolicy
 
     public function update(User $user, User $employee): bool
     {
+        /*
+         * Profil sendiri selalu boleh — setiap karyawan berhak mengubah nama,
+         * telepon, alamat, dan password miliknya sendiri tanpa `users.update`.
+         *
+         * Aman dari eskalasi: kolom yang menentukan wewenang (role, is_active,
+         * hire_date) tidak pernah ada di validasi profil, sehingga nilainya
+         * tidak mungkin sampai ke service dari jalur ini.
+         */
+        if ($user->is($employee)) {
+            return true;
+        }
+
         return $user->can('users.update');
     }
 
