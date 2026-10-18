@@ -42,6 +42,10 @@
                 @can('customers.view')
                     <li><a href="{{ route('customers.index') }}" class="{{ request()->routeIs('customers.*') ? 'active' : '' }}">👥 Pelanggan</a></li>
                 @endcan
+
+                @can('users.view')
+                    <li><a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">🧑‍💼 Karyawan</a></li>
+                @endcan
                 @can('pos.view')
                     <li><a href="{{ route('pos') }}" class="{{ request()->routeIs('pos') ? 'active' : '' }}">🧾 Kasir (POS)</a></li>
                 @endcan

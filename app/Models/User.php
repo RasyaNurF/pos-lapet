@@ -7,6 +7,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -55,5 +56,35 @@ class User extends Authenticatable
     public function hasOpenShift(): bool
     {
         return $this->shift_status === 'open';
+    }
+
+    /**
+     * Daftar role yang boleh dipilih admin pada form karyawan.
+     *
+     * `admin` dilampirkan di sini, bukan ditambahkan ke config('modules.roles'),
+     * karena RoleSeeder menanganinya secara khusus — ia mendapat SELURUH
+     * permission, bukan daftar terbatas. Memasukkannya ke registry akan
+     * menimpa grant penuh itu saat seeder berjalan.
+     *
+     * @return array<int, string>
+     */
+    public static function assignableRoles(): array
+    {
+        return array_values(array_unique(array_merge(
+            ['admin'],
+            array_keys((array) config('modules.roles', [])),
+        )));
+    }
+
+    /**
+     * Scope pencarian berdasarkan nama, email, atau telepon.
+     */
+    public function scopeSearch(Builder $query, string $term): Builder
+    {
+        return $query->where(function (Builder $q) use ($term): void {
+            $q->where('name', 'like', "%{$term}%")
+                ->orWhere('email', 'like', "%{$term}%")
+                ->orWhere('phone', 'like', "%{$term}%");
+        });
     }
 }

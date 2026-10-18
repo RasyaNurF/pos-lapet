@@ -12,6 +12,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\UserController;
 use App\Livewire\PosTerminal;
 use Illuminate\Support\Facades\Route;
 
@@ -68,6 +69,14 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/customers', [CustomerController::class, 'store'])->middleware('permission:customers.create')->name('customers.store');
     Route::put('/customers/{customer}', [CustomerController::class, 'update'])->middleware('permission:customers.update')->name('customers.update');
     Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->middleware('permission:customers.delete')->name('customers.destroy');
+
+    // Data karyawan — admin saja; kasir & manajer tidak punya users.* sama sekali.
+    Route::middleware('permission:users.view')->group(function (): void {
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    });
+    Route::post('/users', [UserController::class, 'store'])->middleware('permission:users.create')->name('users.store');
+    Route::put('/users/{user}', [UserController::class, 'update'])->middleware('permission:users.update')->name('users.update');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->middleware('permission:users.delete')->name('users.destroy');
 
     // Transaksi.
     Route::get('/transactions', [TransactionController::class, 'index'])
