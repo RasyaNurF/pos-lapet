@@ -7,6 +7,9 @@
 > - [x] TAHAP 5 — Testing, Polish & Build Assets (selesai; 37 test hijau, pint bersih, `npm run build` sukses)
 > - [x] TAHAP 6 — Minimum Enterprise Guard (selesai; 71 test hijau, 2 skip MySQL-only, pint bersih)
 > - [x] TAHAP 7 — Navigasi & Tutup Shift (selesai; POS bukan lagi jalan buntu)
+> - [x] TAHAP 8 — Laporan Selisih Kas (selesai; 87 test hijau, 2 skip MySQL-only)
+> - [ ] TAHAP 9 — Store Config (rencana; fondasi pengaturan toko — mengganti hardcode nama/PPN/mata uang)
+> - [ ] TAHAP 10 — Modul Karyawan (rencana; CRUD user + role manajer)
 > - [ ] Deployment (VPS/Nginx) — belum dikerjakan
 >
 > Login: `admin@lapet.test` / `kasir@lapet.test`, password `password`.
@@ -306,3 +309,136 @@ Keputusan otorisasi
 Riwayat memakai **`reports.view`**, bukan `shifts.view`. Kasir memang punya `shifts.view` untuk buka/tutup shift miliknya sendiri, tetapi halaman ini memuat selisih kas **seluruh** kasir — itu wewenang pengawas, bukan operator kasir. Menu "Riwayat Shift" di sidebar dibungkus `@can('reports.view')`.
 
 Verifikasi akhir: 87 test hijau (2 skip MySQL-only), pint bersih 103 file, `npm run build` sukses. Backfill teruji langsung di MySQL.
+
+## 🏪 TAHAP 9: Store Config — fondasi 📋 Rencana
+Tujuan: nama toko, PPN, dan format mata uang saat ini **di-hardcode di dalam kode dan view**. Mengubah PPN berarti menyunting file PHP dan build ulang ulang. Tahap ini membangun lapisan pengaturan yang bisa diubah admin lewat UI, sekaligus menjadi fondasi untuk tahap berikutnya.
+
+Referensi: modul Store Config pada sistem POS lain (tab Information, General, Localisation).
+
+### Masalah (hasil audit kode)
+
+| Hardcode | Lokasi | Dampak |
+|----------|--------|--------|
+| `LA PET GALLERY` | `receipt.blade.php:4` | Nama toko mati di struk — padahal baris di atasnya sudah pakai `config('app.name')` |
+| `0.11` (PPN 11%) | `TransactionService.php:112` **dan** `PosTerminal.php:90` | Tarif pajak tidak bisa diubah tanpa edit kode di dua tempat |
+| `Pajak (11%)` | `receipt.blade.php` | Label persen ikut hardcode |
+| `number_format($x, 0, ',', '.')` | tersebar di seluruh view | Format rupiah tidak bisa dikonfigurasi |
+
+Fondasi yang hilang: **tabel `settings` tidak ada sama sekali**. Tanpa itu, form pengaturan hanya jadi tempat menyimpan angka yang tidak dibaca siapa pun.
+
+### Keputusan desain
+
+**Registry `config/settings.php`** — meniru pola `config/modules.php` yang sudah dipakai repo ini untuk permission, bukan skema asing:
+
+```php
+'company.name' => [
+    'default' => 'LA PET GALLERY',
+    'group'   => 'information',
+    'label'   => 'Nama Toko',
+    'rules'   => ['required', 'string', 'max:120'],
+],
+```
+
+Tabel key-value (`key` unique, `value` text nullable). Alasannya: store config cenderung bertambah, dan key-value memungkinkan menambah pengaturan **tanpa migrasi**. Validasi tipe dipegang registry, bukan database — supaya `tax.rate` tidak bisa menerima string sembarangan.
+
+`SettingService` memuat **seluruh settings sekali ke memori**, lalu `get()` gratis. Tanpa ini setiap panggilan di dalam loop Blade memicu query.
+
+**Tarif PPN disimpan per transaksi** (`transactions.tax_rate`, backfill `11`). Tanpa kolom ini struk lama akan berbohong: setelah PPN berubah ke 12%, cetak ulang struk November akan menulis "Pajak (12%)" padahal November dikenakan 11%. Bug konsolidasi yang sunyi dan baru terlihat berbulan-bulan kemudian.
+
+### Syarat mutlak
+
+Nilai default harus mereproduksi output hari ini **secara identik**: `decimals=0`, `thousands='.'`, `decimal=','`, simbol `Rp` di kiri. Kalau satu angka berubah, seluruh laporan dan struk mendadak berbeda bentuk.
+
+`tax.included` adalah perubahan perilaku, bukan sekadar label — bila aktif, PPN dikeluarkan dari subtotal (`tax = subtotal − subtotal/(1+rate)`), bukan ditambahkan.
+
+### Rincian per tab
+
+| Tab | Isi | Menyentuh |
+|-----|-----|-----------|
+| **Information** | Nama toko, alamat, telepon, email, website, logo | `receipt.blade.php` — menghapus hardcode `LA PET GALLERY` |
+| **General** | Tarif PPN, PPN termasuk harga, diskon penjualan default | `TransactionService`, `PosTerminal`, struk |
+| **Localisation** | Simbol mata uang, posisi, desimal, pemisah ribuan | Seluruh view berformat `number_format` |
+
+### Jebakan: aplikasi ini belum pernah meng-upload gambar
+
+Tidak ditemukan `Storage::`, `hasFile()`, maupun `storeAs()` di seluruh `app/`. Kolom `products.image` ada tapi **tidak pernah ditulis oleh kode aplikasi mana pun** — hanya oleh factory. Dan `public/storage` **belum ada symlink-nya**.
+
+Konsekuensinya jalur logo dibangun dari nol, termasuk `php artisan storage:link` yang **wajib dijalankan di VPS** dan masuk ke checklist rilis `OPERATIONS.md` — kalau tidak, logonya hanya 404 di produksi.
+
+### Urutan commit
+
+| # | Commit | Test baru |
+|---|--------|-----------|
+| 1 | `feat(settings): tabel settings + registry + SettingService` | SettingServiceTest |
+| 2 | `feat(settings): helper format uang (hapus hardcode number_format)` | MoneyFormatTest |
+| 3 | `feat(settings): PPN & diskon default configurable + tarif per transaksi` | TaxConfigTest |
+| 4 | `feat(settings): halaman /settings — Information, General, Localisation` | SettingsPageTest |
+| 5 | `docs: plan.md tahap 9` | — |
+
+### Test yang akan ditulis
+
+- Default mereproduksi `Rp 1.234.567` persis — kalau gagal, seluruh laporan berubah bentuk.
+- Ganti simbol/posisi/desimal → output berubah sesuai.
+- Tarif PPN berubah → preview POS **dan** transaksi tersimpan memakai tarif baru.
+- Backend otoritatif: preview kasir ≠ nilai backend → backend menang (AGENTS.md §3).
+- Struk lama memakai `tax_rate` tersimpan, bukan tarif yang sedang berlaku.
+- Kasir mendapat 403 di `/settings`.
+- Upload logo + file lama terhapus.
+
+### Sengaja ditunda (bukan terlupa)
+
+- **Tax 2 Rate** — tabel `transactions` hanya punya satu kolom `tax`. Mendukung dua tarif berarti menggabungkannya (jadi angka yang tak bisa dibedakan di laporan) atau menambah tabel baru.
+- **Tab Barcode** — butuh kolom `barcode` di produk (sekarang hanya `sku`) plus library generate dan halaman cetak label. Modul terpisah.
+- **Tab Stock Location** — butuh konsep gudang; restrukturisasi ini mengubah cara guard `lockForUpdate` Tahap 6 bekerja.
+- **Tombol Backup Database** — berarti web mengeksekusi `mysqldump` lewat shell. Untuk aplikasi yang bisa diakses jaringan ini membuka jalur eksekusi perintah. Backup sudah benar lewat cron (OPERATIONS.md §1).
+- **Pemilihan Printer (Ticket/Invoice/Takings)** — memilih printer fisik di PC kasir via WebUSB. Bukan data yang bermakna disimpan di server, dan tiap perangkat kasir bisa berbeda.
+- **Custom Field 1–10** — kolom yang hampir pasti dibiarkan kosong selamanya.
+
+## 👥 TAHAP 10: Modul Karyawan 📋 Rencana
+Tujuan: modul `users` **terdaftar di `config/modules.php`** (view/create/update/delete) tapi **tidak pernah diimplementasikan** — registry itu hanya sumber pembuat permission. Tidak ada `UserController`, tidak ada `resources/views/users/`, tidak ada route `/users`. Satu-satunya cara menambah kasir saat ini: menyunting `DatabaseSeeder`.
+
+Keputusan: CRUD lengkap + profil/data karyawan (telepon, alamat, tanggal masuk) + status aktif/nonaktif diatur admin; role baru `manajer`; daftar karyawan hanya untuk admin.
+
+### Empat jebakan
+
+| Jebakan | Solusi |
+|---------|--------|
+| **Role punya dua sumber kebenaran** — kolom `users.role` (string) dan pivot Spatie `model_has_roles` hidup berdampingan | `UserService` menulis keduanya dalam satu `DB::transaction`. Kolom `role` hanya dibaca di 1 tempat (`layouts/app.blade.php:22`), jadi risiko terkendali tapi tetap wajib lewat service |
+| **Soft delete menghapus nama dari riwayat** | `withTrashed()` di 4 relasi: `Shift::user()`, `Transaction::user()`, `AuditLog::user()`, `SuspendedTransaction::user()` |
+| **Admin terakhir mengunci diri sendiri** | Guard di `UserService`: akun admin aktif terakhir tidak bisa dinonaktifkan, dihapus, maupun role-nya diturunkan |
+| **User nonaktif masih bisa login, sesi lama masih hidup** | `Auth::attempt()` diberi syarat `is_active => true`, ditambah middleware `EnsureUserIsActive` (pola `EnsureShiftOpen`) yang memutus sesi tiap request |
+
+### Role `manajer`
+
+Boleh lihat laporan, riwayat shift, dan kelola produk — tapi **tidak** `products.delete`, **tidak** `audit.view`, **tidak** `users.*`.
+
+```php
+'manajer' => [
+    'label' => 'Manajer',
+    'permissions' => [
+        'products.view', 'products.create', 'products.update',
+        'categories.view', 'categories.create', 'categories.update',
+        'customers.view', 'customers.create', 'customers.update',
+        'pos.view', 'sales.view',
+        'shifts.view', 'shifts.create', 'shifts.update',
+        'transactions.view', 'transactions.print',
+        'reports.view', 'reports.export',
+    ],
+],
+```
+
+**Catatan operasional:** `RoleSeeder` tidak jalan otomatis saat `php artisan migrate`. Role `manajer` harus dibuat **di dalam migrasi** (`Role::findOrCreate`) supaya ikut `migrate` — bukan mengandalkan langkah manual yang gampang terlupa di VPS.
+
+### Urutan commit
+
+| # | Commit | Test baru |
+|---|--------|-----------|
+| 1 | `feat(users): kolom karyawan & status aktif` | — |
+| 2 | `feat(users): role manajer di registry` | AuthorizationTest tambahan |
+| 3 | `feat(users): UserService — sinkronisasi role & guard akun terakhir` | UserServiceTest |
+| 4 | `feat(users): blokir login & sesi user nonaktif` | UserActivationTest |
+| 5 | `feat(users): CRUD karyawan` | UserCrudTest |
+| 6 | `feat(users): profil sendiri (data & password)` | ProfileTest |
+| 7 | `docs: plan.md tahap 10` | — |
+
+Dua halaman baru: `/users` (daftar karyawan, kartu + slide-over form persis pola `customers/index.blade.php`) dan `/profile` (ubah data diri & password sendiri — terbuka untuk semua karyawan tanpa `users.*`).
