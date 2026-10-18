@@ -65,6 +65,8 @@ return [
     /*
     | Role beserta permission yang dimilikinya.
     | admin → semua permission (di-grant penuh di RoleSeeder).
+    | manajer → lihat laporan & kelola produk, TANPA products.delete,
+    |            audit.view, users.*, dan settings.* (lihat Tahap 10).
     */
     'roles' => [
         'kasir' => [
@@ -82,6 +84,29 @@ return [
                 'shifts.update',
                 'transactions.view',
                 'transactions.print',
+            ],
+        ],
+        'manajer' => [
+            'label' => 'Manajer',
+            'permissions' => [
+                'products.view',
+                'products.create',
+                'products.update',
+                'categories.view',
+                'categories.create',
+                'categories.update',
+                'customers.view',
+                'customers.create',
+                'customers.update',
+                'pos.view',
+                'sales.view',
+                'shifts.view',
+                'shifts.create',
+                'shifts.update',
+                'transactions.view',
+                'transactions.print',
+                'reports.view',
+                'reports.export',
             ],
         ],
     ],
