@@ -96,15 +96,18 @@ class ShiftService
                 ->sum('total');
 
             $expectedCash = $lockedShift->start_cash + $cashSales;
+            $difference = $endCash - $expectedCash;
 
+            // Selisih disimpan permanen, bukan hanya dilempar sebagai flash
+            // message — agar bisa dilaporkan per shift (lihat /shifts).
             $lockedShift->update([
                 'end_time' => now(),
                 'end_cash' => $endCash,
+                'expected_cash' => $expectedCash,
+                'difference' => $difference,
             ]);
 
             $lockedUser->update(['shift_status' => 'closed']);
-
-            $difference = $endCash - $expectedCash;
 
             $this->audit->log('shift.close', $lockedShift, [
                 'end_time' => null,

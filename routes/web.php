@@ -30,6 +30,11 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/shifts/close', [ShiftController::class, 'closeForm'])->name('shifts.close.form');
     Route::post('/shifts/close', [ShiftController::class, 'close'])->name('shifts.close');
 
+    // Riwayat shift & rekonsiliasi kas (wewenang pengawas, bukan kasir).
+    Route::get('/shifts', [ShiftController::class, 'index'])
+        ->middleware('permission:reports.view')
+        ->name('shifts.index');
+
     // POS Terminal (wajib shift terbuka).
     Route::get('/pos', PosTerminal::class)
         ->middleware(['permission:pos.view', 'shift.open'])

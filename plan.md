@@ -282,3 +282,27 @@ Test
 ShiftNavigationTest: admin/kasir lihat menu shift di sidebar sesuai status; POS menampilkan bar aksi; kasir tanpa shifts.view tidak melihat menu; link tutup shift tidak muncul bila shift tertutup.
 
 Verifikasi akhir: php artisan test, pint, npm run build.
+
+## 📒 TAHAP 8: Laporan Selisih Kas ✅
+Tujuan: selisih kas sebelumnya hanya muncul **sekali** sebagai flash message saat tutup shift, lalu hilang — pemilik tidak bisa mengetahui berapa kasir kurang/lebih tanpa query manual ke JSON `audit_logs`.
+
+Masalah
+
+`ShiftService::closeShift()` menghitung `difference`, tapi hanya melemparnya ke flash message (`ShiftController::close()`). Tabel `shifts` tidak punya kolom `expected_cash` maupun `difference` — hanya `start_cash`, `end_cash`, `total_sales`. Laporan yang ada cuma Penjualan dan Stok Menipis; `resources/views/shifts/` isinya form buka/tutup tanpa riwayat.
+
+Perbaikan
+
+| Commit | Scope | Test baru |
+|--------|-------|-----------|
+| 6 | Kolom rekonsiliasi + `/shifts` riwayat & selisih kas | ShiftHistoryTest (7) |
+
+- Migrasi `090000`: kolom `expected_cash` (unsigned nullable) dan `difference` — **signed**, karena kas kurang itu sah negatif. Backfill menghitung ulang shift lama dengan rumus identik `ShiftService::closeShift()`. `total_sales` tidak bisa dipakai karena mencakup QRIS.
+- `ShiftService::closeShift()` kini menyimpan `expected_cash` & `difference` ke baris shift, bukan hanya mengembalikannya.
+- `/shifts` (`ShiftController::index`) — filter tanggal/kasir/status, ringkasan (kas awal, kas seharusnya, kas akhir, selisih bersih, jumlah shift bermasalah), kartu per shift dengan badge **Kas sesuai / Kurang / Lebih**.
+- Ringkasan dihitung dari kueri yang di-`clone` **sebelum** `paginate()` — kalau tidak, angkanya mentok di 20 baris halaman pertama.
+
+Keputusan otorisasi
+
+Riwayat memakai **`reports.view`**, bukan `shifts.view`. Kasir memang punya `shifts.view` untuk buka/tutup shift miliknya sendiri, tetapi halaman ini memuat selisih kas **seluruh** kasir — itu wewenang pengawas, bukan operator kasir. Menu "Riwayat Shift" di sidebar dibungkus `@can('reports.view')`.
+
+Verifikasi akhir: 87 test hijau (2 skip MySQL-only), pint bersih 103 file, `npm run build` sukses. Backfill teruji langsung di MySQL.
