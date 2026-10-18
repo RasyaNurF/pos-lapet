@@ -8,8 +8,44 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
-<body class="h-screen overflow-hidden bg-base-200">
-    {{ $slot }}
+<body class="h-screen flex flex-col bg-base-200">
+
+    {{-- Bar aksi POS: cegah halaman menjadi jalan buntu (Tahap 7) --}}
+    <header class="flex items-center gap-3 px-4 py-2 bg-base-100 border-b border-base-300 shrink-0">
+        <span class="font-bold text-lg whitespace-nowrap">{{ config('app.name') }}</span>
+
+        @auth
+            @if(auth()->user()->hasOpenShift())
+                <span class="badge badge-success">Shift Buka</span>
+            @else
+                <span class="badge badge-ghost">Shift Tutup</span>
+            @endif
+
+            <div class="flex-1"></div>
+
+            <a href="{{ route('dashboard') }}"
+               class="btn btn-ghost btn-sm min-h-[44px] px-4">
+                ← Dashboard
+            </a>
+
+            @if(auth()->user()->hasOpenShift())
+                <button type="button"
+                        onclick="confirmCloseShift()"
+                        class="btn btn-error btn-sm text-white min-h-[44px] px-4">
+                    🔒 Tutup Shift
+                </button>
+            @endif
+
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="btn btn-ghost btn-sm min-h-[44px] px-4">Logout</button>
+            </form>
+        @endauth
+    </header>
+
+    <div class="flex-1 min-h-0 overflow-hidden">
+        {{ $slot }}
+    </div>
 
     @livewireScripts
 
@@ -31,6 +67,24 @@
     <script>
         function hidePosReceipt() {
             document.getElementById('pos-receipt-modal').style.display = 'none';
+        }
+
+        // Konfirmasi tutup shift (AGENTS.md §5 — aksi destruktif wajib swal).
+        function confirmCloseShift() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Tutup shift sekarang?',
+                text: 'Pastikan semua transaksi selesai. Anda akan diminta mengisi kas akhir.',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Ya, tutup shift',
+                cancelButtonText: 'Batal',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = @json(route('shifts.close.form'));
+                }
+            });
         }
 
         document.addEventListener('livewire:init', () => {

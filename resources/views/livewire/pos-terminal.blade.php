@@ -1,4 +1,4 @@
-<div class="flex h-screen bg-base-200 overflow-hidden">
+<div class="flex h-full bg-base-200 overflow-hidden">
 
     {{-- ============================================================ --}}
     {{-- KIRI (70%): Katalog produk --}}

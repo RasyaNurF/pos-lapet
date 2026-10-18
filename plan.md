@@ -6,6 +6,7 @@
 > - [x] TAHAP 4 — Laporan & Export (selesai)
 > - [x] TAHAP 5 — Testing, Polish & Build Assets (selesai; 37 test hijau, pint bersih, `npm run build` sukses)
 > - [x] TAHAP 6 — Minimum Enterprise Guard (selesai; 71 test hijau, 2 skip MySQL-only, pint bersih)
+> - [x] TAHAP 7 — Navigasi & Tutup Shift (selesai; POS bukan lagi jalan buntu)
 > - [ ] Deployment (VPS/Nginx) — belum dikerjakan
 >
 > Login: `admin@lapet.test` / `kasir@lapet.test`, password `password`.
@@ -242,3 +243,42 @@ Aturan desain yang dikunci
 Audit log: cakupan penuh (semua aksi CRUD + stok + void + shift).
 Validasi: refactor ke FormRequest (kepatuhan AGENTS.md §3) untuk endpoint produk/kategori/pelanggan/shift/void.
 Diskon: backend membatasi maks = subtotal (total minimal 0, pajak tetap dihitung).
+
+🧭 TAHAP 7: Navigasi & Tutup Shift ✅
+Tujuan: menutup celah UX yang membuat halaman POS menjadi jalan buntu — kasir tidak bisa keluar dari /pos maupun menutup shift tanpa mengetik URL manual.
+
+Masalah (hasil audit saat Tahap 6)
+
+Tombol "Tutup Shift" hanya ada di satu tempat: dashboard.blade.php bagian "Aksi cepat shift", dan hanya muncul bila shift terbuka.
+
+layouts/app.blade.php (sidebar) tidak punya menu shift sama sekali.
+
+layouts/pos.blade.php hanya berisi {{ $slot }} — tanpa header, tanpa sidebar, tanpa link keluar.
+
+pos-terminal.blade.php: seluruh tombol adalah wire:click (aksi internal) — nol link <a href>.
+
+Akibat: sekali kasir masuk /pos, tidak ada jalan ke Dashboard, tidak ada Logout, tidak ada Tutup Shift. Harus ketik URL manual.
+
+Rencana perbaikan (dua opsi dijalankan bersama)
+
+1. Bar aksi di POS (layouts/pos.blade.php)
+
+Header tipis di atas area split-screen: tombol ← Dashboard dan 🔒 Tutup Shift (tampil hanya bila shift terbuka), plus indikator status shift.
+
+Tutup shift memakai swal:confirm (AGENTS.md §5) sebelum redirect ke /shifts/close — cegah kasir salah menutup shift di tengah transaksi.
+
+Tap target minimal 44px (AGENTS.md §4).
+
+2. Menu Shift di sidebar (layouts/app.blade.php)
+
+Item "Shift" dengan indikator status (terbuka/tertutup), link ke /shifts/close bila terbuka dan /shifts/open bila tertutup.
+
+Dibungkus @can('shifts.view') agar konsisten dengan menu lain.
+
+Batasan: tutup shift tetap lewat form /shifts/close (input kas akhir) — tidak dipanggil langsung dari POS, karena selisih kas wajib dihitung backend.
+
+Test
+
+ShiftNavigationTest: admin/kasir lihat menu shift di sidebar sesuai status; POS menampilkan bar aksi; kasir tanpa shifts.view tidak melihat menu; link tutup shift tidak muncul bila shift tertutup.
+
+Verifikasi akhir: php artisan test, pint, npm run build.

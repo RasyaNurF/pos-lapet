@@ -45,6 +45,19 @@
                 @can('pos.view')
                     <li><a href="{{ route('pos') }}" class="{{ request()->routeIs('pos') ? 'active' : '' }}">🧾 Kasir (POS)</a></li>
                 @endcan
+                @can('shifts.view')
+                    <li>
+                        <a href="{{ auth()->user()->hasOpenShift() ? route('shifts.close.form') : route('shifts.open.form') }}"
+                           class="{{ request()->routeIs('shifts.*') ? 'active' : '' }}">
+                            ⏱️ Shift
+                            @if(auth()->user()->hasOpenShift())
+                                <span class="badge badge-success badge-sm ml-auto">Buka</span>
+                            @else
+                                <span class="badge badge-ghost badge-sm ml-auto">Tutup</span>
+                            @endif
+                        </a>
+                    </li>
+                @endcan
                 @can('transactions.view')
                     <li><a href="{{ route('transactions.index') }}" class="{{ request()->routeIs('transactions.*') ? 'active' : '' }}">📄 Transaksi</a></li>
                 @endcan
