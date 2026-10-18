@@ -82,6 +82,25 @@ class UserService
             );
         }
 
+        /*
+         * Menonaktifkan karyawan yang shift-nya masih terbuka mengubur shift itu
+         * selamanya. Satu-satunya yang bisa menutup shift adalah pemiliknya
+         * sendiri (ShiftController::close memakai `$request->user()`), dan
+         * setelah dinonaktifkan ia bahkan tidak bisa login untuk menutupnya:
+         * end_cash tidak pernah dihitung, selisih kas tak pernah selesai, dan
+         * bila kelak diaktifkan kembali ia langsung membuka POS di atas shift
+         * berhari-hari yang lalu.
+         *
+         * Pesan ini menuntut urutan kerja yang memang benar: hitung kas dulu,
+         * baru cabut akses.
+         */
+        if ($becomesInactive && $this->hasUnclosedShift($user)) {
+            throw new RuntimeException(
+                'Shift karyawan ini masih terbuka. Minta ia menutup shift (menghitung kas) '
+                .'terlebih dahulu sebelum akunnya dinonaktifkan.',
+            );
+        }
+
         DB::transaction(function () use ($user, $data, $newRole): void {
             $payload = [
                 'name' => $data['name'] ?? $user->name,
@@ -128,6 +147,13 @@ class UserService
             );
         }
 
+        if ($this->hasUnclosedShift($user)) {
+            throw new RuntimeException(
+                'Shift karyawan ini masih terbuka. Minta ia menutup shift (menghitung kas) '
+                .'terlebih dahulu sebelum akunnya dihapus.',
+            );
+        }
+
         $snapshot = $this->auditSnapshot($user);
 
         DB::transaction(function () use ($user): void {
@@ -156,6 +182,19 @@ class UserService
             ->where('role', 'admin')
             ->where('is_active', true)
             ->exists();
+    }
+
+    /**
+     * Apakah masih ada shift yang belum ditutup?
+     *
+     * Dua-duanya diperiksa — kolom `users.shift_status` dan baris `shifts`
+     * tanpa `end_time` — karena keduanya sumber kebenaran terpisah, persis
+     * seperti `role` vs pivot Spatie. Bila salah satunya bilang terbuka, ada
+     * pekerjaan yang belum beres, dan menonaktifkan hanya akan menguburnya.
+     */
+    private function hasUnclosedShift(User $user): bool
+    {
+        return $user->hasOpenShift() || $user->currentShift()->exists();
     }
 
     /**

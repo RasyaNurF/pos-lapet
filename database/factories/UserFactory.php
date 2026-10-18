@@ -38,8 +38,16 @@ class UserFactory extends Factory
              | nilai yang diisi database tidak pernah masuk ke model hasil
              | factory. Akibatnya $user->is_active terbaca null dan cast
              | boolean tidak pernah sempat bekerja, sampai model dibaca ulang.
+             |
+             | Alasan sama untuk shift_status: ia tidak punya cast, jadi
+             | ketiadaannya tidak menimbulkan error — hanya perbandingan
+             | `=== 'open'` yang diam-diam membandingkan null. Nilainya memang
+             | kebetulan sama dengan default database, tapi mengandalkan
+             | kebetulan itu berarti guard yang membaca kolom ini bisa gagal
+             | terbuka lebar bila default suatu saat berubah.
              */
             'is_active' => true,
+            'shift_status' => 'closed',
         ];
     }
 

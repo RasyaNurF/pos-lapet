@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Shift;
 use App\Models\User;
 use App\Services\UserService;
 use Database\Seeders\PermissionSeeder;
@@ -196,6 +197,67 @@ class UserServiceTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+    // Guard shift terbuka — menonaktifkan jangan mengubur shift
+    // ------------------------------------------------------------------
+
+    public function test_cannot_deactivate_an_employee_with_an_open_shift(): void
+    {
+        $employee = User::factory()->create(['role' => 'kasir']);
+        $employee->assignRole('kasir');
+
+        $this->openShiftFor($employee);
+
+        $this->assertGuarded(
+            fn () => $this->service->update($employee, ['is_active' => false]),
+            'Shift karyawan ini masih terbuka',
+        );
+
+        $this->assertTrue($employee->fresh()?->is_active, 'Dinonaktifkan walau guard melempar.');
+        $this->assertDatabaseHas('shifts', ['user_id' => $employee->id, 'end_time' => null]);
+    }
+
+    public function test_cannot_delete_an_employee_with_an_open_shift(): void
+    {
+        $employee = User::factory()->create(['role' => 'kasir']);
+        $employee->assignRole('kasir');
+
+        $this->openShiftFor($employee);
+
+        $this->assertGuarded(
+            fn () => $this->service->destroy($employee),
+            'Shift karyawan ini masih terbuka',
+        );
+
+        $this->assertDatabaseHas('users', ['id' => $employee->id, 'deleted_at' => null]);
+    }
+
+    /**
+     * Guard ini menuntut urutan kerja, bukan melarang selamanya. Setelah kas
+     * dihitung dan shift ditutup, penonaktifan harus jalan — kalau tidak,
+     * kasir yang dipecat di tempat justru mengunci dirinya sendiri.
+     */
+    public function test_an_employee_can_be_deactivated_once_the_shift_is_closed(): void
+    {
+        $employee = User::factory()->create(['role' => 'kasir']);
+        $employee->assignRole('kasir');
+
+        $shift = $this->openShiftFor($employee);
+
+        $this->assertGuarded(
+            fn () => $this->service->update($employee, ['is_active' => false]),
+            'Shift karyawan ini masih terbuka',
+        );
+
+        // Kasir menutup shift (menghitung kas) — urutan yang dituntut guard.
+        $shift->update(['end_time' => now(), 'end_cash' => 50000]);
+        $employee->update(['shift_status' => 'closed']);
+
+        $this->service->update($employee->fresh(), ['is_active' => false]);
+
+        $this->assertFalse($employee->fresh()?->is_active);
+    }
+
+    // ------------------------------------------------------------------
     // Perilaku CRUD biasa
     // ------------------------------------------------------------------
 
@@ -279,6 +341,22 @@ class UserServiceTest extends TestCase
         $admin->assignRole('admin');
 
         return $admin;
+    }
+
+    /**
+     * Meniru ShiftService::openShift: kolom di users DAN baris di shifts
+     * sama-sama harus bilang terbuka — guard memeriksa keduanya.
+     */
+    private function openShiftFor(User $user): Shift
+    {
+        $user->update(['shift_status' => 'open']);
+
+        return Shift::create([
+            'user_id' => $user->id,
+            'start_time' => now(),
+            'start_cash' => 50000,
+            'total_sales' => 0,
+        ]);
     }
 
     /**

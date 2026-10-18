@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Shift;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -300,6 +301,35 @@ class UserCrudTest extends TestCase
             'is_active' => 1,
             'role' => 'admin',
         ]);
+    }
+
+    /**
+     * Menonaktifkan kasir yang shift-nya masih terbuka mengunci shift itu
+     * selamanya — tidak ada jalur admin untuk menutup shift orang lain.
+     * Guard harus sampai ke admin sebagai pesan biasa, bukan error 500.
+     */
+    public function test_deactivating_an_employee_with_an_open_shift_flashes_an_error(): void
+    {
+        $employee = $this->kasir();
+
+        $employee->update(['shift_status' => 'open']);
+        Shift::create([
+            'user_id' => $employee->id,
+            'start_time' => now(),
+            'start_cash' => 50000,
+            'total_sales' => 0,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->put(route('users.update', $employee), $this->validPayload([
+                'email' => $employee->email,
+                'role' => 'kasir',
+                'is_active' => 0,
+            ]))
+            ->assertStatus(302)
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('users', ['id' => $employee->id, 'is_active' => 1]);
     }
 
     public function test_deleting_the_last_admin_flashes_an_error_not_a_500(): void
