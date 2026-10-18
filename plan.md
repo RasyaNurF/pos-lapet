@@ -5,7 +5,7 @@
 > - [x] TAHAP 3 — Cetak Struk & Shift Kasir (selesai)
 > - [x] TAHAP 4 — Laporan & Export (selesai)
 > - [x] TAHAP 5 — Testing, Polish & Build Assets (selesai; 37 test hijau, pint bersih, `npm run build` sukses)
-> - [ ] TAHAP 6 — Minimum Enterprise Guard (rencana; menunggu eksekusi)
+> - [x] TAHAP 6 — Minimum Enterprise Guard (selesai; 71 test hijau, 2 skip MySQL-only, pint bersih)
 > - [ ] Deployment (VPS/Nginx) — belum dikerjakan
 >
 > Login: `admin@lapet.test` / `kasir@lapet.test`, password `password`.
@@ -163,8 +163,20 @@ Setup cron job untuk queue (jika ada pengiriman email struk).
 
 Arahkan domain/subdomain ke folder public.
 
-🛡️ TAHAP 6: Minimum Enterprise Guard (Rencana)
+🛡️ TAHAP 6: Minimum Enterprise Guard ✅ (Selesai — Commit 1–5)
 Tujuan: Menambahkan guard rail 5 lapis ala sistem enterprise (POS/pembayaran/audit) dengan effort realistis. Disusun dari hasil audit codebase terhadap 15 guard.
+
+Hasil Eksekusi
+
+| Commit | Scope | Test baru |
+|--------|-------|-----------|
+| 1 | Input & Access guard: `#[Locked]`, validasi backend, rate limit login, 10 FormRequest, `ProductService` | GuardInputTest (7), LoginRateLimitTest (4) |
+| 2 | Idempotency & concurrency: `client_token`, invoice counter lock, void/shift lock | GuardConcurrencyTest (8) |
+| 3 | CHECK constraint driver-aware (9 constraint, aktif di MySQL) | GuardDatabaseConstraintTest (3) |
+| 4 | Audit log cakupan penuh + `/audit-logs` + `audit.view` | AuditLogTest (13) |
+| 5 | `OPERATIONS.md` — backup, monitoring, backlog (optimistic locking) | — |
+
+Total: 71 test hijau (2 skip — hanya jalan di MySQL), pint bersih. Detail guard per lapisan: `OPERATIONS.md` §5.
 
 Hasil Audit (kondisi sebelum Tahap 6)
 
