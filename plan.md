@@ -631,4 +631,4 @@ Test ke-5 adalah satu-satunya yang bisa menangkap jebakan injeksi — empat lain
 
 ## 🚀 DEPLOYMENT
 
-Tahap 1–11 selesai dan ter-commit. Deployment (VPS/Nginx) menunggu verifikasi akses GitHub & VPS dari Anda — 27+ commit lokal masih belum ter-push karena repo `github.com/tbintang889/pos-lapet` menjawab 404.
+Tahap 1–11 selesai, ter-commit, dan sudah ter-push ke `main`. Catatan untuk deployment berikutnya: remote repo memakai **SSH** (`git@github.com:...`), bukan HTTPS — URL HTTPS-nya yang menjawab 404 dan sempat salah dibaca sebagai "repo tidak ada". Saat rilis, jalankan `php artisan storage:link`; tanpanya logo toko dari Tahap 9 tidak tampil.
