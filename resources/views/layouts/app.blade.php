@@ -22,7 +22,14 @@
                     <div tabindex="0" role="button" class="btn btn-ghost">{{ auth()->user()->name }} ({{ auth()->user()->role }})</div>
                     <ul tabindex="0" class="menu menu-sm dropdown-content bg-base-100 rounded-box z-40 mt-2 w-52 p-2 shadow">
                         <li><a href="{{ route('profile.show') }}">👤 Profil Saya</a></li>
-                        <li><form method="POST" action="{{ route('logout') }}">@csrf<button type="submit">Logout</button></form></li>
+                        <li>
+                            <form method="POST" action="{{ route('logout') }}" class="w-full">
+                                @csrf
+                                {{-- <button> tidak mendapat styling .menu li > a milik item di atasnya,
+                                     jadi harus diberi tap target & padding sendiri. --}}
+                                <button type="submit" class="w-full text-left px-4 py-2 min-h-[44px] rounded-btn cursor-pointer hover:bg-base-200">🚪 Logout</button>
+                            </form>
+                        </li>
                     </ul>
                 </div>
             @endauth
