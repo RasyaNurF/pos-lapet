@@ -632,3 +632,19 @@ Test ke-5 adalah satu-satunya yang bisa menangkap jebakan injeksi — empat lain
 ## 🚀 DEPLOYMENT
 
 Tahap 1–11 selesai, ter-commit, dan sudah ter-push ke `main`. Catatan untuk deployment berikutnya: remote repo memakai **SSH** (`git@github.com:...`), bukan HTTPS — URL HTTPS-nya yang menjawab 404 dan sempat salah dibaca sebagai "repo tidak ada". Saat rilis, jalankan `php artisan storage:link`; tanpanya logo toko dari Tahap 9 tidak tampil.
+
+### Permission yatim: menu menghilang tanpa error
+
+Gejala: login sebagai admin, tapi menu ⚙️ Pengaturan Toko tidak muncul padahal rute, view, dan `@can('settings.view')` semuanya benar.
+
+Penyebabnya di konstruksi seeder. `PermissionSeeder` hanya **membuat** permission dari `config/modules.php`; `RoleSeeder` mengambil `Permission::all()` sebagai **snapshot**. Saat modul `settings` ditambahkan di Tahap 9, permission `settings.view` dan `settings.update` berhasil tercipta — tetapi `RoleSeeder` tidak dijalankan ulang, sehingga tidak ada role yang memegang keduanya. `@can` menolak, menu disembunyikan, dan tidak ada error di mana pun.
+
+**Perbaikan:** `PermissionSeeder` kini memanggil `RoleSeeder` di akhir `run()`. Membuat permission selalu berarti memberikannya ke role, sehingga kasusnya mustahil terulang. Diverifikasi end-to-end — mencabut `settings.view` dari admin lalu menjalankan `db:seed --class=PermissionSeeder` mengembalikannya otomatis, tanpa mengubah jumlah permission kasir (12) dan manajer (18).
+
+Catatan: `DatabaseSeeder` sudah memanggil kedua seeder, jadi instalasi baru (`migrate --seed`) tidak pernah kena. Bug ini hanya muncul saat modul ditambah belakangan.
+
+Pemeriksaan cepat bila menemukan menu yang hilang — daftar harus kosong, artinya semua permission dipegang setidaknya satu role:
+
+```bash
+php artisan tinker --execute="dump(Spatie\Permission\Models\Permission::query()->whereDoesntHave('roles')->pluck('name')->all());"
+```

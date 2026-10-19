@@ -24,5 +24,15 @@ class PermissionSeeder extends Seeder
                 Permission::findOrCreate("{$module}.{$action}", 'web');
             }
         }
+
+        /*
+         * RoleSeeder mengambil daftar permission sebagai snapshot, sehingga
+         * permission yang baru ditambahkan ke config/modules.php tidak akan
+         * dipegang role mana pun sampai RoleSeeder dijalankan ulang. Akibatnya
+         * permission itu sah di database tapi @can selalu menolak — menu
+         * menghilang tanpa error. Menyinkronkan di sini membuatnya mustahil
+         * terjadi: membuat permission selalu berarti memberikannya ke role.
+         */
+        $this->call(RoleSeeder::class);
     }
 }
