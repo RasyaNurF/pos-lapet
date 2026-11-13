@@ -58,7 +58,7 @@
         <div class="relative bg-base-100 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto p-3">
             <div id="pos-receipt-content"></div>
             <div class="flex gap-2 mt-2">
-                <button onclick="window.print()" class="btn btn-primary flex-1 min-h-[48px]">🖨 Cetak Struk</button>
+                <button onclick="printPosReceipt()" class="btn btn-primary flex-1 min-h-[48px]">🖨 Cetak Struk</button>
                 <button onclick="hidePosReceipt()" class="btn btn-ghost flex-1 min-h-[48px]">Tutup</button>
             </div>
         </div>
@@ -67,6 +67,26 @@
     <script>
         function hidePosReceipt() {
             document.getElementById('pos-receipt-modal').style.display = 'none';
+        }
+
+        function printPosReceipt() {
+            const receipt = document.querySelector('#pos-receipt-content .receipt');
+            if (!receipt) return;
+
+            const printWindow = window.open('', '_blank', 'width=420,height=700');
+            if (!printWindow) return;
+
+            const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+                .map((link) => `<link rel="stylesheet" href="${link.href}">`)
+                .join('');
+
+            printWindow.document.open();
+            printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Struk</title>${styles}<style>@page{size:80mm auto;margin:2mm}body{margin:0;background:#fff}.receipt{width:80mm}</style></head><body>${receipt.outerHTML}</body></html>`);
+            printWindow.document.close();
+            printWindow.onload = () => {
+                printWindow.focus();
+                printWindow.print();
+            };
         }
 
         // Konfirmasi tutup shift (AGENTS.md §5 — aksi destruktif wajib swal).

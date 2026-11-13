@@ -157,6 +157,10 @@ class TransactionService
                     'transaction_id' => $transaction->id,
                     'method' => $paymentMethod,
                     'amount' => $total,
+                    'amount_tendered' => $amountTendered,
+                    'change_amount' => $paymentMethod === TransactionPayment::METHOD_CASH
+                        ? max(0, $amountTendered - $total)
+                        : 0,
                     'reference_no' => $paymentMethod === TransactionPayment::METHOD_QRIS
                         ? 'QRIS-'.Str::upper(Str::random(8))
                         : null,

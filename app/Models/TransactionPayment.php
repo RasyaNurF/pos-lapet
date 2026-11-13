@@ -14,13 +14,15 @@ class TransactionPayment extends Model
     public const METHOD_QRIS = 'qris';
 
     protected $fillable = [
-        'transaction_id', 'method', 'amount', 'reference_no',
+        'transaction_id', 'method', 'amount', 'amount_tendered', 'change_amount', 'reference_no',
     ];
 
     protected function casts(): array
     {
         return [
             'amount' => 'integer',
+            'amount_tendered' => 'integer',
+            'change_amount' => 'integer',
         ];
     }
 

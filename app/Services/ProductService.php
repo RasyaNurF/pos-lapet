@@ -62,25 +62,34 @@ class ProductService
      */
     public function update(Product $product, array $data): Product
     {
-        $original = $product->getOriginal();
+        return DB::transaction(function () use ($product, $data): Product {
+            $original = $product->getOriginal();
 
-        $product->update([
-            'sku' => $data['sku'],
-            'name' => $data['name'],
-            'category_id' => $data['category_id'] ?? null,
-            'base_price' => (int) $data['base_price'],
-            'base_cost' => (int) $data['base_cost'],
-            'stock_alert' => (int) $data['stock_alert'],
-            'is_active' => (bool) ($data['is_active'] ?? true),
-        ]);
+            $product->update([
+                'sku' => $data['sku'],
+                'name' => $data['name'],
+                'category_id' => $data['category_id'] ?? null,
+                'base_price' => (int) $data['base_price'],
+                'base_cost' => (int) $data['base_cost'],
+                'stock_alert' => (int) $data['stock_alert'],
+                'is_active' => (bool) ($data['is_active'] ?? true),
+            ]);
 
-        $changes = $this->audit->changes($product, $original);
+            // Harga POS diambil dari varian, jadi perubahan harga master harus
+            // ikut diterapkan agar produk dan harga di kasir tetap selaras.
+            $product->variants()->update([
+                'price' => (int) $data['base_price'],
+                'cost' => (int) $data['base_cost'],
+            ]);
 
-        if ($changes['old'] !== []) {
-            $this->audit->log('product.update', $product, $changes['old'], $changes['new']);
-        }
+            $changes = $this->audit->changes($product, $original);
 
-        return $product;
+            if ($changes['old'] !== []) {
+                $this->audit->log('product.update', $product, $changes['old'], $changes['new']);
+            }
+
+            return $product;
+        });
     }
 
     /**

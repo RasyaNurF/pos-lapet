@@ -46,6 +46,16 @@
             <span>{{ strtoupper($payment->method) }}</span>
             <span>@money($payment->amount)</span>
         </div>
+        @if($payment->method === 'cash' && $payment->amount_tendered !== null)
+            <div class="flex justify-between">
+                <span>Uang diterima</span>
+                <span>@money($payment->amount_tendered)</span>
+            </div>
+            <div class="flex justify-between font-bold">
+                <span>Kembalian</span>
+                <span>@money($payment->change_amount ?? 0)</span>
+            </div>
+        @endif
         @if($payment->reference_no)
             <div>Ref: {{ $payment->reference_no }}</div>
         @endif
