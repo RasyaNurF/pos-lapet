@@ -75,12 +75,16 @@ class ProductService
                 'is_active' => (bool) ($data['is_active'] ?? true),
             ]);
 
-            // Harga POS diambil dari varian, jadi perubahan harga master harus
-            // ikut diterapkan agar produk dan harga di kasir tetap selaras.
-            $product->variants()->update([
-                'price' => (int) $data['base_price'],
-                'cost' => (int) $data['base_cost'],
-            ]);
+            // Harga POS tersimpan per varian agar ukuran seperti kg dan pcs
+            // dapat memiliki harga yang berbeda.
+            foreach ($data['variants'] ?? [] as $variantId => $variantData) {
+                $product->variants()
+                    ->whereKey($variantId)
+                    ->update([
+                        'price' => (int) $variantData['price'],
+                        'cost' => (int) $variantData['cost'],
+                    ]);
+            }
 
             $changes = $this->audit->changes($product, $original);
 

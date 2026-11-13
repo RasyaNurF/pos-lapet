@@ -28,6 +28,10 @@ class UpdateProductRequest extends FormRequest
             'base_cost' => ['required', 'numeric', 'min:0'],
             'stock_alert' => ['required', 'numeric', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
+            'variants' => ['nullable', 'array'],
+            'variants.*' => ['required', 'array'],
+            'variants.*.price' => ['required', 'numeric', 'min:0'],
+            'variants.*.cost' => ['required', 'numeric', 'min:0'],
         ];
     }
 
