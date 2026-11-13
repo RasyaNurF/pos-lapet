@@ -18,7 +18,19 @@
                         </div>
                         <div class="flex justify-between font-bold">
                             <span>Total Sales</span>
-                            <span class="font-mono text-success">@money($shift->total_sales)</span>
+                            <span class="font-mono text-success">@money($summary['total_sales'])</span>
+                        </div>
+                        <div class="flex justify-between mt-2">
+                            <span>Penjualan Tunai</span>
+                            <span class="font-mono">@money($summary['cash_sales'])</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Penjualan Non-tunai</span>
+                            <span class="font-mono">@money($summary['non_cash_sales'])</span>
+                        </div>
+                        <div class="flex justify-between font-bold border-t border-base-300 mt-2 pt-2">
+                            <span>Kas Seharusnya</span>
+                            <span class="font-mono text-primary">@money($summary['expected_cash'])</span>
                         </div>
                     </div>
 

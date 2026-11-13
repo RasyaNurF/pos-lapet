@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Shift;
 use App\Models\Transaction;
+use App\Models\TransactionPayment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -88,12 +89,8 @@ class ShiftService
                 throw new RuntimeException('Shift sudah pernah ditutup.');
             }
 
-            // Hitung penjualan cash pada shift ini.
-            $cashSales = (int) Transaction::query()
-                ->where('shift_id', $lockedShift->id)
-                ->where('status', Transaction::STATUS_COMPLETED)
-                ->whereHas('payments', fn ($q) => $q->where('method', 'cash'))
-                ->sum('total');
+            // Hitung penerimaan tunai dari pembayaran yang masih completed.
+            $cashSales = $this->cashSalesFor($lockedShift);
 
             $expectedCash = $lockedShift->start_cash + $cashSales;
             $difference = $endCash - $expectedCash;
@@ -124,5 +121,43 @@ class ShiftService
                 'difference' => $difference,
             ];
         });
+    }
+
+    /**
+     * Rincian penjualan untuk ditampilkan sebelum shift ditutup.
+     *
+     * @return array{total_sales: int, cash_sales: int, non_cash_sales: int, expected_cash: int}
+     */
+    public function closingSummary(Shift $shift): array
+    {
+        $completedTransactions = Transaction::query()
+            ->where('shift_id', $shift->id)
+            ->where('status', Transaction::STATUS_COMPLETED);
+
+        $cashSales = $this->cashSalesFor($shift);
+        $nonCashSales = (int) TransactionPayment::query()
+            ->where('method', '!=', TransactionPayment::METHOD_CASH)
+            ->whereHas('transaction', fn ($query) => $query
+                ->where('shift_id', $shift->id)
+                ->where('status', Transaction::STATUS_COMPLETED))
+            ->sum('amount');
+
+        return [
+            'total_sales' => (int) $completedTransactions->sum('total'),
+            'cash_sales' => $cashSales,
+            'non_cash_sales' => $nonCashSales,
+            'expected_cash' => (int) $shift->start_cash + $cashSales,
+        ];
+    }
+
+    /** Jumlah pembayaran tunai completed pada shift. */
+    private function cashSalesFor(Shift $shift): int
+    {
+        return (int) TransactionPayment::query()
+            ->where('method', TransactionPayment::METHOD_CASH)
+            ->whereHas('transaction', fn ($query) => $query
+                ->where('shift_id', $shift->id)
+                ->where('status', Transaction::STATUS_COMPLETED))
+            ->sum('amount');
     }
 }
