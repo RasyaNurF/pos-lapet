@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class SuspendedTransaction extends Model
 {
     protected $fillable = [
-        'user_id', 'customer_id', 'cart', 'discount', 'label',
+        'user_id', 'customer_id', 'cart', 'discount', 'discount_is_manual', 'label',
     ];
 
     protected function casts(): array
@@ -18,6 +18,7 @@ class SuspendedTransaction extends Model
         return [
             'cart' => 'array',
             'discount' => 'integer',
+            'discount_is_manual' => 'boolean',
         ];
     }
 

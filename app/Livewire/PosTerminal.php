@@ -55,6 +55,9 @@ class PosTerminal extends Component
     #[Validate('nullable|numeric|min:0')]
     public int $discount = 0;
 
+    #[Locked]
+    public bool $discountIsManual = false;
+
     public string $qris_reference = '';
 
     /**
@@ -149,10 +152,6 @@ class PosTerminal extends Component
             return;
         }
 
-        // Sebelum dimutasi — diskon default hanya diberlakukan saat keranjang
-        // baru berubah dari kosong menjadi terisi.
-        $wasEmpty = $this->cart === [];
-
         if (isset($this->cart[$variantId])) {
             $this->cart[$variantId]['qty']++;
         } else {
@@ -164,19 +163,7 @@ class PosTerminal extends Component
             ];
         }
 
-        /*
-         * Pratinjau diskon default toko, hanya bila kasir belum mengisi apa pun.
-         *
-         * Karena syaratnya $wasEmpty, item inilah SATU-SATUNYA isi keranjang,
-         * sehingga subtotal = harga x qty baris ini. Membaca $this->subtotal
-         * malah berbahaya: computed-nya masih menyimpan nilai lama dari cache.
-         */
-        if ($wasEmpty && $this->discount === 0) {
-            $this->discount = app(SaleCalculator::class)
-                ->defaultDiscountFor($variant->price * $this->cart[$variantId]['qty']);
-        }
-
-        $this->resetComputedCache();
+        $this->syncCartDiscount();
     }
 
     public function increaseQty(int $variantId): void
@@ -197,20 +184,21 @@ class PosTerminal extends Component
             $this->cart = $this->cart; // reindex
         }
 
-        $this->resetComputedCache();
+        $this->syncCartDiscount();
     }
 
     public function removeFromCart(int $variantId): void
     {
         unset($this->cart[$variantId]);
         $this->cart = $this->cart;
-        $this->resetComputedCache();
+        $this->syncCartDiscount();
     }
 
     public function resetCart(): void
     {
         $this->cart = [];
         $this->discount = 0;
+        $this->discountIsManual = false;
         $this->customer_id = null;
         $this->amount_tendered = 0;
         $this->qris_reference = '';
@@ -248,6 +236,7 @@ class PosTerminal extends Component
         // Mengosongkan input angka membuat Livewire meng-unset properti int.
         // Pulihkan menjadi nol sebelum dibaca oleh kalkulasi/checkout.
         $this->discount = max(0, $this->discount ?? 0);
+        $this->discountIsManual = true;
 
         $this->resetComputedCache();
     }
@@ -368,6 +357,7 @@ class PosTerminal extends Component
                 splitPrimaryAmount: $this->split_payment ? $this->amount_tendered : null,
                 secondPaymentMethod: $this->split_payment ? $this->second_payment_method : null,
                 qrisReference: $this->qris_reference,
+                useDefaultDiscount: ! $this->discountIsManual,
             );
 
             $this->resetCart();
@@ -403,6 +393,7 @@ class PosTerminal extends Component
                 customerId: $this->customer_id,
                 discount: $this->discount,
                 label: $this->suspend_label !== '' ? $this->suspend_label : null,
+                discountIsManual: $this->discountIsManual,
             );
 
             $this->resetCart();
@@ -437,8 +428,9 @@ class PosTerminal extends Component
         $this->cart = $service->resume($suspended);
         $this->customer_id = $suspended->customer_id;
         $this->discount = $suspended->discount;
+        $this->discountIsManual = $suspended->discount_is_manual;
 
-        $this->resetComputedCache();
+        $this->syncCartDiscount();
 
         $this->dispatch('swal:success', title: 'Dipulihkan', text: 'Keranjang dipulihkan dari daftar tunda.');
     }
@@ -455,9 +447,22 @@ class PosTerminal extends Component
 
     // ------------------------------------------------------------------
 
-    /**
-     * Reset cache computed property Livewire.
-     */
+    private function syncCartDiscount(): void
+    {
+        if ($this->cart === []) {
+            $this->discount = 0;
+            $this->discountIsManual = false;
+        }
+
+        // Buang subtotal lama sebelum menghitung persen dari isi keranjang baru.
+        $this->resetComputedCache();
+        if (! $this->discountIsManual) {
+            $this->discount = app(SaleCalculator::class)->defaultDiscountFor($this->subtotal);
+            $this->resetComputedCache();
+        }
+    }
+
+    /** Reset cache computed property Livewire. */
     private function resetComputedCache(): void
     {
         unset(

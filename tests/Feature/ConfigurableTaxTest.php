@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Livewire\PosTerminal;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\SuspendedTransaction;
 use App\Models\User;
 use App\Services\SettingService;
 use App\Services\TransactionService;
@@ -320,5 +321,80 @@ class ConfigurableTaxTest extends TestCase
             ->test(PosTerminal::class)
             ->call('resumeTransaction', $suspended->id)
             ->assertSet('discount', 7000);
+    }
+
+    public function test_default_percentage_follows_added_removed_and_changed_quantities(): void
+    {
+        app(SettingService::class)->set(['sales_default_discount' => 10]);
+        $first = $this->makeVariant(price: 100000);
+        $second = $this->makeVariant(price: 50000);
+        Livewire::actingAs($this->kasir)->test(PosTerminal::class)
+            ->call('addToCart', $first->id)->assertSet('discount', 10000)
+            ->call('increaseQty', $first->id)->assertSet('discount', 20000)->assertSet('total', 202000)
+            ->call('addToCart', $second->id)->assertSet('discount', 25000)->assertSet('total', 252500)
+            ->call('decreaseQty', $first->id)->assertSet('discount', 15000)
+            ->call('removeFromCart', $second->id)->assertSet('discount', 10000)
+            ->call('decreaseQty', $first->id)->assertSet('discount', 0)->assertSet('total', 0)
+            ->call('addByBarcode', $second->sku)->assertSet('discount', 5000);
+    }
+
+    public function test_fractional_percentage_rounds_against_current_subtotal(): void
+    {
+        app(SettingService::class)->set(['sales_default_discount' => 12.5]);
+        $variant = $this->makeVariant(price: 999);
+        Livewire::actingAs($this->kasir)->test(PosTerminal::class)
+            ->call('addToCart', $variant->id)->assertSet('discount', 125)
+            ->call('increaseQty', $variant->id)->assertSet('discount', 250)
+            ->call('decreaseQty', $variant->id)->assertSet('discount', 125);
+    }
+
+    public function test_manual_zero_discount_is_preserved_until_the_cart_is_emptied(): void
+    {
+        app(SettingService::class)->set(['sales_default_discount' => 10]);
+        $variant = $this->makeVariant(price: 100000);
+        Livewire::actingAs($this->kasir)->test(PosTerminal::class)
+            ->call('addToCart', $variant->id)->set('discount', 0)
+            ->call('increaseQty', $variant->id)->assertSet('discount', 0)
+            ->call('decreaseQty', $variant->id)->assertSet('discount', 0)
+            ->call('removeFromCart', $variant->id)->assertSet('discount', 0)
+            ->call('addToCart', $variant->id)->assertSet('discount', 10000);
+    }
+
+    public function test_automatic_discount_remains_a_percentage_after_suspend_and_resume(): void
+    {
+        app(SettingService::class)->set(['sales_default_discount' => 10]);
+        $variant = $this->makeVariant(price: 100000);
+        $component = Livewire::actingAs($this->kasir)->test(PosTerminal::class)
+            ->call('addToCart', $variant->id)->call('suspendTransaction');
+        $hold = SuspendedTransaction::firstOrFail();
+        $this->assertFalse($hold->discount_is_manual);
+        $component->call('resumeTransaction', $hold->id)
+            ->assertSet('discount', 10000)
+            ->call('increaseQty', $variant->id)->assertSet('discount', 20000)
+            ->call('quickTender', 250000)->call('checkout')->assertDispatched('swal:success');
+        $this->assertDatabaseHas('transactions', ['subtotal' => 200000, 'discount' => 20000, 'total' => 202000]);
+    }
+
+    public function test_manual_discount_remains_fixed_after_suspend_and_resume(): void
+    {
+        app(SettingService::class)->set(['sales_default_discount' => 10]);
+        $variant = $this->makeVariant(price: 100000);
+        $component = Livewire::actingAs($this->kasir)->test(PosTerminal::class)
+            ->call('addToCart', $variant->id)->set('discount', 7000)->call('suspendTransaction');
+        $hold = SuspendedTransaction::firstOrFail();
+        $this->assertTrue($hold->discount_is_manual);
+        $component->call('resumeTransaction', $hold->id)
+            ->call('increaseQty', $variant->id)->assertSet('discount', 7000);
+    }
+
+    public function test_checkout_recalculates_automatic_discount_using_current_database_prices(): void
+    {
+        app(SettingService::class)->set(['sales_default_discount' => 10]);
+        $variant = $this->makeVariant(price: 100000);
+        $component = Livewire::actingAs($this->kasir)->test(PosTerminal::class)
+            ->call('addToCart', $variant->id)->assertSet('discount', 10000);
+        $variant->update(['price' => 200000]);
+        $component->call('quickTender', 250000)->call('checkout')->assertDispatched('swal:success');
+        $this->assertDatabaseHas('transactions', ['subtotal' => 200000, 'discount' => 20000, 'total' => 202000]);
     }
 }

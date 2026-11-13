@@ -54,6 +54,7 @@ class TransactionService
         ?int $splitPrimaryAmount = null,
         ?string $secondPaymentMethod = null,
         string $qrisReference = '',
+        bool $useDefaultDiscount = false,
     ): Transaction {
         if ($cart === []) {
             throw new RuntimeException('Keranjang kosong.');
@@ -80,7 +81,7 @@ class TransactionService
         }
 
         try {
-            return DB::transaction(function () use ($user, $cart, $customerId, $paymentMethod, $amountTendered, $discount, $clientToken, $splitPrimaryAmount, $secondPaymentMethod, $qrisReference): Transaction {
+            return DB::transaction(function () use ($user, $cart, $customerId, $paymentMethod, $amountTendered, $discount, $clientToken, $splitPrimaryAmount, $secondPaymentMethod, $qrisReference, $useDefaultDiscount): Transaction {
                 // Lock pelanggan terdaftar selama checkout; pelanggan anonim tidak memperoleh poin.
                 $customer = $customerId === null
                     ? null
@@ -126,7 +127,9 @@ class TransactionService
                 }
 
                 // Layer 1: batasi diskon maksimal subtotal (total tidak pernah negatif).
-                $discount = min($discount, $subtotal);
+                $discount = $useDefaultDiscount
+                    ? $this->calculator->defaultDiscountFor($subtotal)
+                    : min($discount, $subtotal);
 
                 /*
                  * PPN & total diambil dari SATU kalkulator yang juga dipakai
@@ -357,7 +360,7 @@ class TransactionService
      *
      * @param  array<int, array{id: int, name: string, price: int, qty: int}>  $cart
      */
-    public function suspend(User $user, array $cart, ?int $customerId, int $discount = 0, ?string $label = null): SuspendedTransaction
+    public function suspend(User $user, array $cart, ?int $customerId, int $discount = 0, ?string $label = null, bool $discountIsManual = true): SuspendedTransaction
     {
         if ($cart === []) {
             throw new RuntimeException('Keranjang kosong, tidak perlu disuspend.');
@@ -368,6 +371,7 @@ class TransactionService
             'customer_id' => $customerId,
             'cart' => array_values($cart),
             'discount' => $discount,
+            'discount_is_manual' => $discountIsManual,
             'label' => $label,
         ]);
     }
