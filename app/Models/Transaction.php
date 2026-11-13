@@ -18,7 +18,7 @@ class Transaction extends Model
 
     protected $fillable = [
         'invoice_no', 'client_token', 'customer_id', 'user_id', 'shift_id', 'subtotal', 'discount',
-        'tax', 'tax_rate', 'total', 'status', 'notes', 'voided_at', 'voided_by',
+        'tax', 'tax_rate', 'total', 'points_earned', 'status', 'notes', 'voided_at', 'voided_by',
     ];
 
     protected function casts(): array
@@ -29,6 +29,7 @@ class Transaction extends Model
             'tax' => 'integer',
             'tax_rate' => 'decimal:2',
             'total' => 'integer',
+            'points_earned' => 'integer',
             'voided_at' => 'datetime',
         ];
     }

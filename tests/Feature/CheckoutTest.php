@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
@@ -44,6 +45,7 @@ class CheckoutTest extends TestCase
 
     public function test_split_payment_reconciles_cash_and_restores_stock_when_voided(): void
     {
+        $customer = Customer::factory()->create(['points' => 7]);
         $shifts = app(ShiftService::class);
         $shift = $shifts->openShift($this->kasir, 50000);
         $variant = $this->makeVariant();
@@ -51,7 +53,7 @@ class CheckoutTest extends TestCase
         $sale = $service->processTransaction(
             user: $this->kasir,
             cart: [['id' => $variant->id, 'qty' => 1]],
-            customerId: null,
+            customerId: $customer->id,
             paymentMethod: 'bank',
             amountTendered: 4000,
             splitPrimaryAmount: 4000,
@@ -60,6 +62,8 @@ class CheckoutTest extends TestCase
 
         $this->assertSame(9, $variant->fresh()->stock);
         $this->assertSame(11100, $sale->total);
+        $this->assertSame(1, $sale->points_earned);
+        $this->assertSame(8, $customer->fresh()->points);
         $this->assertSame(7100, $shifts->closingSummary($shift)['cash_sales']);
         $closed = $shifts->closeShift($this->kasir, 57100)['shift'];
         $this->assertSame(57100, $closed->expected_cash);
@@ -67,6 +71,7 @@ class CheckoutTest extends TestCase
 
         $service->voidTransaction($sale, $this->kasir);
         $this->assertSame(10, $variant->fresh()->stock);
+        $this->assertSame(7, $customer->fresh()->points);
         $this->assertSame(0, $closed->fresh()->total_sales);
         $this->assertSame(50000, $closed->fresh()->expected_cash);
         $this->assertSame(7100, $closed->fresh()->difference);
@@ -179,5 +184,40 @@ class CheckoutTest extends TestCase
 
         $this->assertEquals(22200, $transaction->total);
         $this->assertNotNull($transaction->payments->first()->reference_no);
+    }
+
+    public function test_checkout_awards_points_to_registered_customer_and_void_reverses_them(): void
+    {
+        $variant = $this->makeVariant(price: 100000);
+        $customer = Customer::factory()->create(['points' => 7]);
+
+        $transaction = app(TransactionService::class)->processTransaction(
+            user: $this->kasir,
+            cart: [['id' => $variant->id, 'qty' => 1]],
+            customerId: $customer->id,
+            paymentMethod: 'cash',
+            amountTendered: 200000,
+        );
+
+        $this->assertSame(11, $transaction->points_earned);
+        $this->assertSame(18, $customer->fresh()->points);
+
+        app(TransactionService::class)->voidTransaction($transaction, $this->kasir);
+        $this->assertSame(7, $customer->fresh()->points);
+    }
+
+    public function test_anonymous_checkout_does_not_award_points(): void
+    {
+        $variant = $this->makeVariant(price: 100000);
+
+        $transaction = app(TransactionService::class)->processTransaction(
+            user: $this->kasir,
+            cart: [['id' => $variant->id, 'qty' => 1]],
+            customerId: null,
+            paymentMethod: 'cash',
+            amountTendered: 200000,
+        );
+
+        $this->assertSame(0, $transaction->points_earned);
     }
 }

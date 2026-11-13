@@ -51,6 +51,9 @@
     @endif
     <div class="flex justify-between"><span>Pajak ({{ $transaction->tax_rate_label }}%)</span><span>@money($transaction->tax)</span></div>
     <div class="flex justify-between font-bold text-sm"><span>TOTAL</span><span>@money($transaction->total)</span></div>
+    @if($transaction->customer && $transaction->points_earned > 0)
+        <div class="flex justify-between"><span>Poin transaksi ini</span><span>+{{ $transaction->points_earned }}</span></div>
+    @endif
 
     <div class="border-t border-dashed border-black my-1"></div>
 
