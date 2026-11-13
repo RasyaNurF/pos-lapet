@@ -33,8 +33,9 @@
             <label class="block text-sm mb-1">Metode</label>
             <select name="method" class="select select-bordered h-12">
                 <option value="">Semua</option>
-                <option value="cash" @selected(($filters['method'] ?? null) === 'cash')>Tunai</option>
-                <option value="qris" @selected(($filters['method'] ?? null) === 'qris')>QRIS</option>
+                @foreach(\App\Models\TransactionPayment::METHODS as $method => $label)
+                    <option value="{{ $method }}" @selected(($filters['method'] ?? null) === $method)>{{ $label }}</option>
+                @endforeach
             </select>
         </div>
         <button type="submit" class="btn btn-primary min-h-[48px]">Terapkan</button>

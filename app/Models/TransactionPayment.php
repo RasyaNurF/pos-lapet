@@ -13,6 +13,24 @@ class TransactionPayment extends Model
 
     public const METHOD_QRIS = 'qris';
 
+    public const METHOD_BANK = 'bank';
+
+    public const METHOD_CREDIT_CARD = 'credit_card';
+
+    public const METHOD_DANA = 'dana';
+
+    public const METHOD_GOPAY = 'gopay';
+
+    /** @var array<string, string> */
+    public const METHODS = [
+        self::METHOD_CASH => 'Tunai',
+        self::METHOD_QRIS => 'QRIS',
+        self::METHOD_BANK => 'Transfer Bank',
+        self::METHOD_CREDIT_CARD => 'Kartu Kredit',
+        self::METHOD_DANA => 'DANA',
+        self::METHOD_GOPAY => 'GoPay',
+    ];
+
     protected $fillable = [
         'transaction_id', 'method', 'amount', 'reference_no',
     ];

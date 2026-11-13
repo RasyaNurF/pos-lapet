@@ -21,6 +21,10 @@ class TransactionService
     private const array ALLOWED_METHODS = [
         TransactionPayment::METHOD_CASH,
         TransactionPayment::METHOD_QRIS,
+        TransactionPayment::METHOD_BANK,
+        TransactionPayment::METHOD_CREDIT_CARD,
+        TransactionPayment::METHOD_DANA,
+        TransactionPayment::METHOD_GOPAY,
     ];
 
     public function __construct(
@@ -45,6 +49,9 @@ class TransactionService
         int $amountTendered,
         int $discount = 0,
         ?string $clientToken = null,
+        ?int $splitPrimaryAmount = null,
+        ?string $secondPaymentMethod = null,
+        string $qrisReference = '',
     ): Transaction {
         if ($cart === []) {
             throw new RuntimeException('Keranjang kosong.');
@@ -71,7 +78,7 @@ class TransactionService
         }
 
         try {
-            return DB::transaction(function () use ($user, $cart, $customerId, $paymentMethod, $amountTendered, $discount, $clientToken): Transaction {
+            return DB::transaction(function () use ($user, $cart, $customerId, $paymentMethod, $amountTendered, $discount, $clientToken, $splitPrimaryAmount, $secondPaymentMethod, $qrisReference): Transaction {
                 // Hitung ulang total di backend — jangan percaya frontend (AGENTS.md §3).
                 $subtotal = 0;
                 $items = [];
@@ -119,10 +126,18 @@ class TransactionService
                 $tax = $this->calculator->taxFor($subtotal);
                 $total = $this->calculator->totalFor($subtotal, $tax, $discount);
 
-                if ($paymentMethod === TransactionPayment::METHOD_CASH && $amountTendered < $total) {
+                if ($splitPrimaryAmount !== null && ($splitPrimaryAmount < 0 || $splitPrimaryAmount > $total)) {
+                    throw new RuntimeException('Nominal pembayaran pertama tidak valid.');
+                }
+                if ($splitPrimaryAmount !== null && (! in_array($secondPaymentMethod, self::ALLOWED_METHODS, true) || $secondPaymentMethod === $paymentMethod)) {
+                    throw new RuntimeException('Metode pembayaran kedua tidak valid.');
+                }
+                $primaryAmount = $splitPrimaryAmount ?? $total;
+                $secondaryAmount = $splitPrimaryAmount !== null ? $total - $primaryAmount : 0;
+
+                if ($splitPrimaryAmount === null && $paymentMethod === TransactionPayment::METHOD_CASH && $amountTendered < $total) {
                     throw new RuntimeException('Uang diterima kurang dari total belanja.');
                 }
-
                 $transaction = Transaction::create([
                     'invoice_no' => $this->generateInvoiceNo(),
                     'client_token' => $clientToken,
@@ -153,14 +168,26 @@ class TransactionService
                     $line['variant']->decrement('stock', $line['qty']);
                 }
 
-                TransactionPayment::create([
-                    'transaction_id' => $transaction->id,
-                    'method' => $paymentMethod,
-                    'amount' => $total,
-                    'reference_no' => $paymentMethod === TransactionPayment::METHOD_QRIS
-                        ? 'QRIS-'.Str::upper(Str::random(8))
-                        : null,
-                ]);
+                if ($primaryAmount > 0) {
+                    TransactionPayment::create([
+                        'transaction_id' => $transaction->id,
+                        'method' => $paymentMethod,
+                        'amount' => $primaryAmount,
+                        'reference_no' => $paymentMethod === TransactionPayment::METHOD_CASH
+                            ? null
+                            : (trim($qrisReference) !== '' ? trim($qrisReference) : ($paymentMethod === TransactionPayment::METHOD_QRIS ? 'QRIS-'.Str::upper(Str::random(8)) : null)),
+                    ]);
+                }
+                if ($secondaryAmount > 0) {
+                    TransactionPayment::create([
+                        'transaction_id' => $transaction->id,
+                        'method' => $secondPaymentMethod,
+                        'amount' => $secondaryAmount,
+                        'reference_no' => $secondPaymentMethod === TransactionPayment::METHOD_QRIS
+                            ? (trim($qrisReference) !== '' ? trim($qrisReference) : 'QRIS-'.Str::upper(Str::random(8)))
+                            : null,
+                    ]);
+                }
 
                 // Update total sales shift berjalan.
                 $user->currentShift?->increment('total_sales', $total);

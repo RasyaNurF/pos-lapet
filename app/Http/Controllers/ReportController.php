@@ -25,7 +25,7 @@ class ReportController extends Controller
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'method' => ['nullable', 'in:cash,qris'],
+            'method' => ['nullable', 'in:'.implode(',', array_keys(\App\Models\TransactionPayment::METHODS))],
         ]);
 
         $query = Transaction::query()
