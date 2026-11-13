@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
-    <div x-data="{ openPanel: false, mode: 'create', form: {} }">
+    <div x-data="{ openPanel: false, mode: 'create', form: {}, imagePreview: '' }">
         <div class="flex items-center justify-between mb-4">
             <h1 class="text-2xl font-bold">Produk</h1>
-            <button @click="mode = 'create'; form = {}; openPanel = true" class="btn btn-primary min-h-[48px] px-6">
+            <button @click="mode = 'create'; form = {}; imagePreview = ''; openPanel = true" class="btn btn-primary min-h-[48px] px-6">
                 + Tambah Produk
             </button>
         </div>
@@ -22,10 +22,15 @@
                 <div class="card bg-base-100 shadow-sm">
                     <div class="card-body p-4">
                         <div class="flex justify-between items-start">
-                            <div>
+                            <div class="flex gap-3 min-w-0">
+                                @if($product->image)
+                                    <img src="{{ str_starts_with($product->image, 'http') ? $product->image : \Illuminate\Support\Facades\Storage::disk('public')->url($product->image) }}" alt="{{ $product->name }}" class="w-16 h-16 object-cover rounded-lg">
+                                @endif
+                                <div>
                                 <div class="font-bold text-lg">{{ $product->name }}</div>
                                 <div class="text-sm text-base-content/60">SKU: {{ $product->sku }}</div>
                                 <div class="text-sm text-base-content/60">{{ $product->category?->name ?? 'Tanpa kategori' }}</div>
+                                </div>
                             </div>
                             <span class="badge {{ $product->is_active ? 'badge-success' : 'badge-ghost' }}">
                                 {{ $product->is_active ? 'Aktif' : 'Nonaktif' }}
@@ -47,7 +52,7 @@
                         </div>
 
                         <div class="card-actions justify-end mt-3">
-                            <button @click="mode = 'edit'; form = @js($product->only(['id', 'sku', 'name', 'category_id', 'base_price', 'base_cost', 'stock_alert', 'is_active']) + ['variants' => $product->variants->map(fn ($variant) => $variant->only(['id', 'name', 'price', 'cost']))->values()]); openPanel = true"
+                            <button @click="mode = 'edit'; form = @js($product->only(['id', 'sku', 'name', 'category_id', 'base_price', 'base_cost', 'stock_alert', 'is_active', 'image']) + ['variants' => $product->variants->map(fn ($variant) => $variant->only(['id', 'name', 'price', 'cost']))->values()]); imagePreview = form.image ? (form.image.startsWith('http') ? form.image : '{{ asset('storage') }}/' + form.image) : ''; openPanel = true"
                                     class="btn btn-sm btn-outline min-h-[44px]">Edit</button>
                             <form method="POST" action="{{ route('products.destroy', $product) }}"
                                   onsubmit="swalConfirm({ title: this.dataset.title, url: this.action }); return false;" data-title="Hapus produk {{ $product->name }}?">
@@ -73,7 +78,7 @@
                     <button @click="openPanel = false" class="btn btn-circle btn-ghost text-xl">✕</button>
                 </div>
 
-                <form :action="mode === 'create' ? '{{ route('products.store') }}' : '{{ url('/products') }}/' + form.id" method="POST">
+                <form :action="mode === 'create' ? '{{ route('products.store') }}' : '{{ url('/products') }}/' + form.id" method="POST" enctype="multipart/form-data">
                     @csrf
                     <template x-if="mode === 'edit'"><input type="hidden" name="_method" value="PUT"></template>
 
@@ -82,6 +87,13 @@
 
                     <label class="block text-sm font-medium mb-1">Nama Produk</label>
                     <input type="text" name="name" :value="form.name" required class="input input-bordered w-full mb-3 h-12">
+
+                    <label class="block text-sm font-medium mb-1">Gambar Produk</label>
+                    <img x-show="imagePreview" :src="imagePreview" alt="Pratinjau gambar produk" class="w-28 h-28 object-cover rounded-lg mb-2">
+                    <input type="file" name="image" accept="image/jpeg,image/png,image/webp"
+                           @change="imagePreview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : imagePreview"
+                           class="file-input file-input-bordered w-full mb-2">
+                    <p class="text-xs text-base-content/60 mb-3">JPG, PNG, atau WebP. Maksimal 2 MB. Kosongkan jika tidak ingin mengganti gambar.</p>
 
                     <label class="block text-sm font-medium mb-1">Kategori</label>
                     <select name="category_id" class="select select-bordered w-full mb-3 h-12">

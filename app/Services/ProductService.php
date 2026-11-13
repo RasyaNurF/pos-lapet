@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Logika bisnis master produk (AGENTS.md §3 — controller tipis, logic di Service).
@@ -24,7 +25,11 @@ class ProductService
      */
     public function create(array $data): Product
     {
-        return DB::transaction(function () use ($data): Product {
+        $imagePath = isset($data['image'])
+            ? $data['image']->store('products', 'public')
+            : null;
+
+        return DB::transaction(function () use ($data, $imagePath): Product {
             $product = Product::create([
                 'sku' => $data['sku'],
                 'name' => $data['name'],
@@ -33,6 +38,7 @@ class ProductService
                 'base_cost' => (int) $data['base_cost'],
                 'stock_alert' => (int) $data['stock_alert'],
                 'is_active' => (bool) ($data['is_active'] ?? true),
+                'image' => $imagePath,
             ]);
 
             // Varian default bila nama varian diisi.
@@ -62,7 +68,12 @@ class ProductService
      */
     public function update(Product $product, array $data): Product
     {
-        return DB::transaction(function () use ($product, $data): Product {
+        $oldImage = $product->image;
+        $imagePath = isset($data['image'])
+            ? $data['image']->store('products', 'public')
+            : $oldImage;
+
+        $updatedProduct = DB::transaction(function () use ($product, $data, $imagePath): Product {
             $original = $product->getOriginal();
 
             $product->update([
@@ -73,6 +84,7 @@ class ProductService
                 'base_cost' => (int) $data['base_cost'],
                 'stock_alert' => (int) $data['stock_alert'],
                 'is_active' => (bool) ($data['is_active'] ?? true),
+                'image' => $imagePath,
             ]);
 
             // Harga POS tersimpan per varian agar ukuran seperti kg dan pcs
@@ -94,6 +106,12 @@ class ProductService
 
             return $product;
         });
+
+        if ($oldImage !== null && $oldImage !== $imagePath && ! str_starts_with($oldImage, 'http')) {
+            Storage::disk('public')->delete($oldImage);
+        }
+
+        return $updatedProduct;
     }
 
     /**

@@ -27,6 +27,7 @@ class StoreProductRequest extends FormRequest
             'base_cost' => ['required', 'numeric', 'min:0'],
             'stock_alert' => ['required', 'numeric', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'variant_name' => ['nullable', 'string', 'max:64'],
             'variant_price' => ['nullable', 'numeric', 'min:0'],
             'variant_stock' => ['nullable', 'numeric', 'min:0'],
