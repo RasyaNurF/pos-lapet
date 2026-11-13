@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Transaction;
+use App\Models\TransactionPayment;
 use App\Models\User;
 use App\Services\TransactionService;
 use Database\Seeders\PermissionSeeder;
@@ -174,6 +175,30 @@ class SalesReportTest extends TestCase
 
         $this->assertSame(1, $transactions->total());
         $this->assertSame($matching->id, $transactions->first()->id);
+    }
+
+    public function test_report_and_export_accept_all_payment_methods(): void
+    {
+        foreach (array_keys(TransactionPayment::METHODS) as $method) {
+            $sale = $this->makeSale($this->cashier, $method);
+            $this->makeSale($this->otherCashier, $method);
+            $filters = ['method' => $method, 'user_id' => $this->cashier->id];
+
+            $response = $this->actingAs($this->admin)
+                ->get(route('reports.sales', $filters))->assertOk();
+
+            $this->assertSame([$sale->id], $response->viewData('transactions')->pluck('id')->all());
+            $csv = $this->get(route('reports.export', $filters))->assertOk()->streamedContent();
+            $this->assertStringContainsString($sale->invoice_no, $csv);
+        }
+    }
+
+    public function test_report_and_export_reject_unknown_payment_methods(): void
+    {
+        foreach (['reports.sales', 'reports.export'] as $route) {
+            $this->actingAs($this->admin)->getJson(route($route, ['method' => 'unknown']))
+                ->assertUnprocessable()->assertJsonValidationErrors('method');
+        }
     }
 
     private function makeSale(User $user, string $method = 'cash', mixed $createdAt = null): Transaction

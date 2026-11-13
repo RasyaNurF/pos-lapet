@@ -103,6 +103,7 @@
                         </div>
                     @endforeach
                 </div>
+
             </div>
         @endif
 
@@ -198,30 +199,42 @@
                     <div class="text-3xl font-bold font-mono text-primary">@money($this->total)</div>
                 </div>
 
+                <label class="flex items-center gap-3 rounded-xl border border-base-300 p-3 mb-3 min-h-[52px]">
+                    <input type="checkbox" wire:model.live="split_payment" class="checkbox checkbox-primary">
+                    <span class="font-semibold">Split payment</span>
+                </label>
+
                 {{-- Metode bayar --}}
                 <div class="grid grid-cols-2 gap-2 mb-3">
-                    <button
-                        wire:click="$set('payment_method', 'cash')"
-                        class="btn min-h-[56px] text-lg {{ $payment_method === 'cash' ? 'btn-primary' : 'btn-outline' }}"
-                    >
-                        💵 Tunai
-                    </button>
-                    <button
-                        wire:click="$set('payment_method', 'qris')"
-                        class="btn min-h-[56px] text-lg {{ $payment_method === 'qris' ? 'btn-primary' : 'btn-outline' }}"
-                    >
-                        📱 QRIS
-                    </button>
+                    @foreach(\App\Models\TransactionPayment::METHODS as $method => $label)
+                        <button
+                            wire:click="$set('payment_method', '{{ $method }}')"
+                            class="btn min-h-[56px] text-base {{ $payment_method === $method ? 'btn-primary' : 'btn-outline' }}"
+                        >
+                            {{ $label }}
+                        </button>
+                    @endforeach
                 </div>
 
-                @if($payment_method === 'qris')
-                    <label class="block text-sm font-medium mb-1">No. Referensi QRIS</label>
+                @if($split_payment)
+                    <label class="block text-sm font-medium mb-1">Metode pembayaran kedua</label>
+                    <select wire:model.live="second_payment_method" class="select select-bordered w-full mb-3 h-14">
+                        @foreach(\App\Models\TransactionPayment::METHODS as $method => $label)
+                            @if($method !== $payment_method)
+                                <option value="{{ $method }}">{{ $label }}</option>
+                            @endif
+                        @endforeach
+                    </select>
+                @endif
+
+                @if($payment_method !== 'cash' && ! $split_payment)
+                    <label class="block text-sm font-medium mb-1">No. Referensi {{ \App\Models\TransactionPayment::METHODS[$payment_method] ?? 'Pembayaran' }} (opsional)</label>
                     <input type="text" wire:model="qris_reference" class="input input-bordered w-full mb-3 h-14 text-lg" placeholder="Scan / masukkan ref...">
                 @endif
 
-                @if($payment_method === 'cash')
-                    {{-- Uang diterima + Numpad (khusus tunai) --}}
-                    <label class="block text-sm font-medium mb-1">Uang Diterima (Rp / IDR)</label>
+                @if($payment_method === 'cash' || $split_payment)
+                    {{-- Nominal metode utama; metode satunya menutup sisa tagihan. --}}
+                    <label class="block text-sm font-medium mb-1">{{ $split_payment && $payment_method !== 'cash' ? 'Nominal '.(\App\Models\TransactionPayment::METHODS[$payment_method] ?? 'Pembayaran') : 'Uang Diterima' }} (Rp / IDR)</label>
                     <input
                         type="text"
                         inputmode="none"
@@ -266,16 +279,21 @@
                     @enderror
 
                     <div class="flex justify-between text-xl font-bold mb-3">
-                        <span>Kembalian</span>
-                        <span class="font-mono {{ $this->change < 0 ? 'text-error' : 'text-success' }}">@money($this->change)</span>
+                        <span>{{ $split_payment ? 'Sisa dibayar '.(\App\Models\TransactionPayment::METHODS[$second_payment_method] ?? 'metode kedua') : 'Kembalian' }}</span>
+                        <span class="font-mono text-success">@money($split_payment ? max(0, $this->total - $amount_tendered) : $this->change)</span>
                     </div>
-                @else
+                @elseif($payment_method !== 'cash')
                     {{-- QRIS: lunas otomatis senilai total, tanpa input uang diterima --}}
                     <div class="bg-info/10 border border-info/30 rounded-xl p-4 mb-3 text-center">
-                        <div class="text-sm text-base-content/60 mb-1">Tagihan Dilunasi via QRIS</div>
+                        <div class="text-sm text-base-content/60 mb-1">Tagihan Dilunasi via {{ \App\Models\TransactionPayment::METHODS[$payment_method] ?? 'metode pembayaran' }}</div>
                         <div class="text-2xl font-bold font-mono text-info">@money($this->total)</div>
                         <div class="text-xs text-base-content/60 mt-1">Pastikan pembayaran berhasil discan sebelum menutup panel.</div>
                     </div>
+                @endif
+
+                @if($split_payment && $amount_tendered > 0 && $amount_tendered < $this->total)
+                    <label class="block text-sm font-medium mb-1">No. Referensi pembayaran (opsional)</label>
+                    <input type="text" wire:model="qris_reference" class="input input-bordered w-full mb-3 h-14 text-lg" placeholder="Scan / masukkan ref...">
                 @endif
 
                 <button

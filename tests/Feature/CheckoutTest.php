@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
+use App\Services\ShiftService;
 use App\Services\TransactionService;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -39,6 +40,36 @@ class CheckoutTest extends TestCase
             'cost' => $cost,
             'stock' => $stock,
         ]);
+    }
+
+    public function test_split_payment_reconciles_cash_and_restores_stock_when_voided(): void
+    {
+        $shifts = app(ShiftService::class);
+        $shift = $shifts->openShift($this->kasir, 50000);
+        $variant = $this->makeVariant();
+        $service = app(TransactionService::class);
+        $sale = $service->processTransaction(
+            user: $this->kasir,
+            cart: [['id' => $variant->id, 'qty' => 1]],
+            customerId: null,
+            paymentMethod: 'bank',
+            amountTendered: 4000,
+            splitPrimaryAmount: 4000,
+            secondPaymentMethod: 'cash',
+        );
+
+        $this->assertSame(9, $variant->fresh()->stock);
+        $this->assertSame(11100, $sale->total);
+        $this->assertSame(7100, $shifts->closingSummary($shift)['cash_sales']);
+        $closed = $shifts->closeShift($this->kasir, 57100)['shift'];
+        $this->assertSame(57100, $closed->expected_cash);
+        $this->assertSame(0, $closed->difference);
+
+        $service->voidTransaction($sale, $this->kasir);
+        $this->assertSame(10, $variant->fresh()->stock);
+        $this->assertSame(0, $closed->fresh()->total_sales);
+        $this->assertSame(50000, $closed->fresh()->expected_cash);
+        $this->assertSame(7100, $closed->fresh()->difference);
     }
 
     public function test_checkout_reduces_stock_and_creates_transaction(): void

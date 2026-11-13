@@ -45,6 +45,10 @@ class PosTerminal extends Component
 
     public string $payment_method = 'cash';
 
+    public bool $split_payment = false;
+
+    public string $second_payment_method = 'qris';
+
     #[Validate('required|numeric|min:0')]
     public int $amount_tendered = 0;
 
@@ -210,6 +214,7 @@ class PosTerminal extends Component
         $this->customer_id = null;
         $this->amount_tendered = 0;
         $this->qris_reference = '';
+        $this->split_payment = false;
         $this->checkout_token = '';
         $this->showPaymentPanel = false;
         $this->resetComputedCache();
@@ -265,7 +270,7 @@ class PosTerminal extends Component
         }
 
         // QRIS: uang diterima dianggap lunas senilai total belanja.
-        if ($this->payment_method === TransactionPayment::METHOD_QRIS) {
+        if ($this->payment_method !== TransactionPayment::METHOD_CASH && ! $this->split_payment) {
             $this->amount_tendered = $this->total;
             $this->resetComputedCache();
         }
@@ -281,9 +286,40 @@ class PosTerminal extends Component
      */
     public function updatedPaymentMethod(string $value): void
     {
-        if ($value === TransactionPayment::METHOD_QRIS) {
+        if ($this->split_payment) {
+            $this->amount_tendered = $this->total;
+            if ($this->second_payment_method === $value) {
+                $this->second_payment_method = $value === TransactionPayment::METHOD_CASH
+                    ? TransactionPayment::METHOD_QRIS
+                    : TransactionPayment::METHOD_CASH;
+            }
+            $this->resetComputedCache();
+        } elseif ($value !== TransactionPayment::METHOD_CASH) {
             $this->amount_tendered = $this->total;
             $this->resetComputedCache();
+        }
+    }
+
+    public function updatedSplitPayment(): void
+    {
+        if ($this->split_payment) {
+            $this->amount_tendered = $this->total;
+            if ($this->second_payment_method === $this->payment_method) {
+                $this->second_payment_method = $this->payment_method === TransactionPayment::METHOD_CASH
+                    ? TransactionPayment::METHOD_QRIS
+                    : TransactionPayment::METHOD_CASH;
+            }
+        } elseif ($this->payment_method !== TransactionPayment::METHOD_CASH) {
+            $this->amount_tendered = $this->total;
+        }
+    }
+
+    public function updatedSecondPaymentMethod(string $value): void
+    {
+        if ($value === $this->payment_method) {
+            $this->second_payment_method = $this->payment_method === TransactionPayment::METHOD_CASH
+                ? TransactionPayment::METHOD_QRIS
+                : TransactionPayment::METHOD_CASH;
         }
     }
 
@@ -301,14 +337,14 @@ class PosTerminal extends Component
     public function checkout(TransactionService $service): void
     {
         // Sinkronkan uang diterima untuk QRIS (lunas = total).
-        if ($this->payment_method === TransactionPayment::METHOD_QRIS) {
+        if ($this->payment_method !== TransactionPayment::METHOD_CASH && ! $this->split_payment) {
             $this->amount_tendered = $this->total;
             $this->resetComputedCache();
         }
 
         $this->validate([
-            'payment_method' => 'required|in:cash,qris',
-            'amount_tendered' => 'required|numeric|min:'.$this->total,
+            'payment_method' => 'required|in:'.implode(',', array_keys(TransactionPayment::METHODS)),
+            'amount_tendered' => 'required|numeric|min:0'.($this->payment_method === 'cash' && ! $this->split_payment ? '|min:'.$this->total : ''),
             'discount' => 'nullable|numeric|min:0',
         ], [
             'amount_tendered.min' => 'Uang diterima kurang dari total belanja.',
@@ -329,6 +365,9 @@ class PosTerminal extends Component
                 amountTendered: $this->amount_tendered,
                 discount: $this->discount,
                 clientToken: $this->checkout_token,
+                splitPrimaryAmount: $this->split_payment ? $this->amount_tendered : null,
+                secondPaymentMethod: $this->split_payment ? $this->second_payment_method : null,
+                qrisReference: $this->qris_reference,
             );
 
             $this->resetCart();

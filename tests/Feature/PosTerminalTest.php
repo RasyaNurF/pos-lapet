@@ -43,6 +43,30 @@ class PosTerminalTest extends TestCase
         ]);
     }
 
+    public function test_split_payment_accepts_cash_and_non_cash_primary_methods(): void
+    {
+        foreach (['cash' => 'qris', 'bank' => 'cash'] as $primary => $secondary) {
+            Livewire::actingAs($this->kasir)
+                ->test(PosTerminal::class)
+                ->call('addToCart', $this->variant->id)
+                ->call('openPaymentPanel')
+                ->set('split_payment', true)
+                ->set('payment_method', $primary)
+                ->set('second_payment_method', $secondary)
+                ->assertSee('Uang Pas')
+                ->set('amount_tendered', 4000)
+                ->call('checkout')
+                ->assertHasNoErrors()
+                ->assertDispatched('swal:success');
+
+            $sale = Transaction::latest('id')->firstOrFail();
+            $this->assertSame(11100, $sale->total);
+            $this->assertSame([$primary => 4000, $secondary => 7100], $sale->payments->pluck('amount', 'method')->all());
+        }
+
+        $this->assertSame(8, $this->variant->fresh()->stock);
+    }
+
     public function test_add_to_cart_updates_subtotal_and_total(): void
     {
         Livewire::actingAs($this->kasir)

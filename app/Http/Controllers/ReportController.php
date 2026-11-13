@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SalesReportRequest;
 use App\Models\ProductVariant;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -18,11 +18,11 @@ class ReportController extends Controller
     /**
      * Laporan penjualan dengan filter tanggal / kasir / metode.
      */
-    public function sales(Request $request): View
+    public function sales(SalesReportRequest $request): View
     {
         abort_unless($request->user()?->can('reports.view') === true, 403);
 
-        $data = $this->validatedSalesFilters($request);
+        $data = $request->validated();
         $query = $this->salesQuery($data)->latest('created_at');
 
         $transactions = $query->paginate(20)->withQueryString();
@@ -77,11 +77,11 @@ class ReportController extends Controller
     /**
      * Export CSV penjualan (streaming + BOM UTF-8 — plan.md TAHAP 4).
      */
-    public function export(Request $request): StreamedResponse
+    public function export(SalesReportRequest $request): StreamedResponse
     {
         abort_unless($request->user()?->can('reports.export') === true, 403);
 
-        $data = $this->validatedSalesFilters($request);
+        $data = $request->validated();
 
         $fileName = 'laporan-penjualan-'.now()->format('Ymd-His').'.csv';
 
@@ -120,21 +120,6 @@ class ReportController extends Controller
             fclose($handle);
         }, $fileName, [
             'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
-    }
-
-    /**
-     * Validate the same filter set for both the on-screen report and CSV.
-     *
-     * @return array{date_from?: string|null, date_to?: string|null, user_id?: int|string|null, method?: string|null}
-     */
-    private function validatedSalesFilters(Request $request): array
-    {
-        return $request->validate([
-            'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date'],
-            'user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'method' => ['nullable', 'in:cash,qris'],
         ]);
     }
 
