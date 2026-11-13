@@ -290,6 +290,7 @@ class PosTerminal extends Component
     public function closePaymentPanel(): void
     {
         $this->showPaymentPanel = false;
+        $this->checkout_token = '';
     }
 
     public function quickTender(int $amount): void
