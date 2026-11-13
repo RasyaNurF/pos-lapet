@@ -11,6 +11,8 @@ use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ProductCrudTest extends TestCase
@@ -125,5 +127,53 @@ class ProductCrudTest extends TestCase
         $this->assertSame(25000, $variant->fresh()->price);
         $this->assertSame(12000, $variant->fresh()->cost);
         $this->assertSame(50000, $other->fresh()->price);
+    }
+
+    public function test_product_image_upload_survives_editing_without_a_new_file(): void
+    {
+        Storage::fake('public');
+        $payload = [
+            'sku' => 'IMAGE-TEST', 'name' => 'Produk Bergambar', 'base_price' => 10000,
+            'base_cost' => 5000, 'stock_alert' => 2, 'is_active' => '0',
+            'variant_name' => '1kg', 'variant_stock' => 10,
+        ];
+        $this->actingAs($this->admin)->post(route('products.store'), [
+            ...$payload, 'image' => UploadedFile::fake()->image('product.png'),
+        ])->assertSessionHasNoErrors();
+        $product = Product::where('sku', 'IMAGE-TEST')->firstOrFail();
+        $path = $product->image;
+        Storage::disk('public')->assertExists($path);
+        $this->assertFalse($product->is_active);
+        config(['filesystems.disks.public.url' => 'http://wrong-host.test/storage']);
+        $this->get('http://127.0.0.1:8000/products')->assertOk()
+            ->assertSee('src="http://127.0.0.1:8000/storage/'.$path.'"', false);
+
+        $this->put(route('products.update', $product), [...$payload, 'is_active' => '1'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame($path, $product->fresh()->image);
+        $this->admin->update(['shift_status' => 'open']);
+        $this->get('http://127.0.0.1:8000/pos')->assertOk()
+            ->assertSee('src="http://127.0.0.1:8000/storage/'.$path.'"', false);
+
+        $this->put(route('products.update', $product), [
+            ...$payload, 'image' => UploadedFile::fake()->image('replacement.jpg'),
+        ])->assertSessionHasNoErrors();
+        $this->assertFalse($product->fresh()->is_active);
+        $this->assertNotSame($path, $product->fresh()->image);
+        Storage::disk('public')->assertMissing($path);
+        Storage::disk('public')->assertExists($product->fresh()->image);
+    }
+
+    public function test_product_image_validation_rejects_non_images_and_oversized_uploads(): void
+    {
+        Storage::fake('public');
+        $product = Product::factory()->create();
+        $payload = $product->only(['sku', 'name', 'base_price', 'base_cost', 'stock_alert']);
+        foreach ([UploadedFile::fake()->create('bad.txt', 1, 'text/plain'), UploadedFile::fake()->image('huge.png')->size(2049)] as $file) {
+            $this->actingAs($this->admin)->put(route('products.update', $product), [...$payload, 'image' => $file])
+                ->assertSessionHasErrors('image');
+        }
+        $this->assertNull($product->fresh()->image);
+        $this->assertSame([], Storage::disk('public')->allFiles());
     }
 }

@@ -55,7 +55,7 @@
                                    min-h-[150px] disabled:opacity-40"
                         >
                             @if($product->image)
-                                <img src="{{ $product->image }}" alt="{{ $product->name }}" class="w-16 h-16 object-cover rounded-lg mb-2">
+                                <img src="{{ str_starts_with($product->image, 'http') ? $product->image : asset('storage/'.$product->image) }}" alt="{{ $product->name }}" class="w-16 h-16 object-cover rounded-lg mb-2">
                             @else
                                 <div class="w-16 h-16 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-2xl font-bold mb-2">
                                     {{ strtoupper(substr($product->name, 0, 1)) }}
