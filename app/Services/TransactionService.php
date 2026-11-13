@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Customer;
 use App\Models\ProductVariant;
 use App\Models\SuspendedTransaction;
 use App\Models\Transaction;
@@ -72,6 +73,11 @@ class TransactionService
 
         try {
             return DB::transaction(function () use ($user, $cart, $customerId, $paymentMethod, $amountTendered, $discount, $clientToken): Transaction {
+                // Lock pelanggan terdaftar selama checkout; pelanggan anonim tidak memperoleh poin.
+                $customer = $customerId === null
+                    ? null
+                    : Customer::query()->whereKey($customerId)->lockForUpdate()->firstOrFail();
+
                 // Hitung ulang total di backend — jangan percaya frontend (AGENTS.md §3).
                 $subtotal = 0;
                 $items = [];
@@ -118,6 +124,7 @@ class TransactionService
                 $taxRate = $this->calculator->taxRate();
                 $tax = $this->calculator->taxFor($subtotal);
                 $total = $this->calculator->totalFor($subtotal, $tax, $discount);
+                $pointsEarned = $customer === null ? 0 : intdiv($total, 10000);
 
                 if ($paymentMethod === TransactionPayment::METHOD_CASH && $amountTendered < $total) {
                     throw new RuntimeException('Uang diterima kurang dari total belanja.');
@@ -136,6 +143,7 @@ class TransactionService
                     // mengubah riwayat struk lama.
                     'tax_rate' => $taxRate,
                     'total' => $total,
+                    'points_earned' => $pointsEarned,
                     'status' => Transaction::STATUS_COMPLETED,
                 ]);
 
@@ -161,6 +169,10 @@ class TransactionService
                         ? 'QRIS-'.Str::upper(Str::random(8))
                         : null,
                 ]);
+
+                if ($customer !== null && $pointsEarned > 0) {
+                    $customer->increment('points', $pointsEarned);
+                }
 
                 // Update total sales shift berjalan.
                 $user->currentShift?->increment('total_sales', $total);
@@ -218,6 +230,17 @@ class TransactionService
                     ->lockForUpdate()
                     ->first()
                     ?->increment('stock', $item->qty);
+            }
+
+            if ($locked->customer_id !== null && $locked->points_earned > 0) {
+                $customer = Customer::withTrashed()
+                    ->whereKey($locked->customer_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($customer !== null) {
+                    $customer->decrement('points', min($customer->points, $locked->points_earned));
+                }
             }
 
             $locked->update([

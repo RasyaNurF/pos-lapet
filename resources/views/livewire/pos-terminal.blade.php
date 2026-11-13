@@ -144,9 +144,10 @@
             <select wire:model.live="customer_id" class="select select-bordered w-full mb-2 h-12">
                 <option value="">Umum</option>
                 @foreach($customers as $customer)
-                    <option value="{{ $customer->id }}">{{ $customer->name }} {{ $customer->phone ? "({$customer->phone})" : '' }}</option>
+                    <option value="{{ $customer->id }}">{{ $customer->name }} {{ $customer->phone ? "({$customer->phone})" : '' }} · {{ $customer->points }} poin</option>
                 @endforeach
             </select>
+            <div class="text-xs text-base-content/60 mb-2">Pelanggan terdaftar mendapat 1 poin tiap Rp10.000 transaksi.</div>
 
             <label class="block text-sm font-medium mb-1">Diskon (Rp)</label>
             <input type="number" wire:model.live="discount" min="0" class="input input-bordered w-full mb-2 h-12 text-right" placeholder="0">
