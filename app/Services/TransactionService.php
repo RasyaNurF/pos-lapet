@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\ProductVariant;
+use App\Models\Shift;
 use App\Models\SuspendedTransaction;
 use App\Models\Transaction;
 use App\Models\TransactionItem;
@@ -254,8 +255,34 @@ class TransactionService
                 'notes' => $reason ?? $locked->notes,
             ]);
 
-            // Kurangi total sales shift jika shift masih terbuka.
-            $locked->shift?->decrement('total_sales', $locked->total);
+            if ($locked->shift_id !== null) {
+                $shift = Shift::query()
+                    ->whereKey($locked->shift_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($shift !== null) {
+                    $shift->decrement('total_sales', $locked->total);
+
+                    // Penjualan tunai memengaruhi rekonsiliasi meskipun shift
+                    // sudah ditutup. Hitung ulang berdasarkan nominal cash
+                    // yang benar-benar dibayar (termasuk split payment).
+                    if ($shift->end_time !== null && $shift->end_cash !== null) {
+                        $cashSales = (int) DB::table('transaction_payments')
+                            ->join('transactions', 'transactions.id', '=', 'transaction_payments.transaction_id')
+                            ->where('transactions.shift_id', $shift->id)
+                            ->where('transactions.status', Transaction::STATUS_COMPLETED)
+                            ->where('transaction_payments.method', TransactionPayment::METHOD_CASH)
+                            ->sum('transaction_payments.amount');
+
+                        $expectedCash = $shift->start_cash + $cashSales;
+                        $shift->update([
+                            'expected_cash' => $expectedCash,
+                            'difference' => $shift->end_cash - $expectedCash,
+                        ]);
+                    }
+                }
+            }
 
             $this->audit->log(
                 'transaction.void',

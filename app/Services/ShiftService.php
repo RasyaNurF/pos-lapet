@@ -89,11 +89,12 @@ class ShiftService
             }
 
             // Hitung penjualan cash pada shift ini.
-            $cashSales = (int) Transaction::query()
-                ->where('shift_id', $lockedShift->id)
-                ->where('status', Transaction::STATUS_COMPLETED)
-                ->whereHas('payments', fn ($q) => $q->where('method', 'cash'))
-                ->sum('total');
+            $cashSales = (int) DB::table('transaction_payments')
+                ->join('transactions', 'transactions.id', '=', 'transaction_payments.transaction_id')
+                ->where('transactions.shift_id', $lockedShift->id)
+                ->where('transactions.status', Transaction::STATUS_COMPLETED)
+                ->where('transaction_payments.method', 'cash')
+                ->sum('transaction_payments.amount');
 
             $expectedCash = $lockedShift->start_cash + $cashSales;
             $difference = $endCash - $expectedCash;
