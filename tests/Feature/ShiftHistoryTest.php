@@ -157,6 +157,39 @@ class ShiftHistoryTest extends TestCase
         $this->assertEquals(1, $summary['shifts']);
     }
 
+    public function test_history_filters_by_selected_cashier_instead_of_admin(): void
+    {
+        $this->makeClosedShift(startCash: 100000, endCash: 100000, difference: 0, user: $this->admin);
+        $cashierShift = $this->makeClosedShift(startCash: 200000, endCash: 200000, difference: 0);
+
+        $response = $this->actingAs($this->admin)
+            ->get(route('shifts.index', ['user_id' => $this->kasir->id]))
+            ->assertOk();
+
+        $shifts = $response->viewData('shifts');
+        $this->assertSame(1, $shifts->total());
+        $this->assertSame($cashierShift->id, $shifts->first()->id);
+        $this->assertSame($this->kasir->id, $shifts->first()->user_id);
+    }
+
+    public function test_history_filters_by_start_date_range(): void
+    {
+        $recent = $this->makeClosedShift(startCash: 100000, endCash: 100000, difference: 0);
+        $older = $this->makeClosedShift(startCash: 100000, endCash: 100000, difference: 0);
+        Shift::query()->whereKey($older->id)->update(['start_time' => now()->subDay()]);
+
+        $shifts = $this->actingAs($this->admin)
+            ->get(route('shifts.index', [
+                'date_from' => now()->toDateString(),
+                'date_to' => now()->toDateString(),
+            ]))
+            ->assertOk()
+            ->viewData('shifts');
+
+        $this->assertSame(1, $shifts->total());
+        $this->assertSame($recent->id, $shifts->first()->id);
+    }
+
     /**
      * Kolom `difference` harus signed — selisih kurang itu bernilai negatif.
      */
@@ -170,10 +203,10 @@ class ShiftHistoryTest extends TestCase
             ->assertSee('Kurang Rp 50.000', false);
     }
 
-    private function makeClosedShift(int $startCash, int $endCash, int $difference): Shift
+    private function makeClosedShift(int $startCash, int $endCash, int $difference, ?User $user = null): Shift
     {
         return Shift::create([
-            'user_id' => $this->kasir->id,
+            'user_id' => ($user ?? $this->kasir)->id,
             'start_time' => now()->subHours(3),
             'end_time' => now(),
             'start_cash' => $startCash,

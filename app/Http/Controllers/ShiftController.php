@@ -43,7 +43,7 @@ class ShiftController extends Controller
             ->with('user')
             ->when($data['date_from'] ?? null, fn ($q, $v) => $q->whereDate('start_time', '>=', $v))
             ->when($data['date_to'] ?? null, fn ($q, $v) => $q->whereDate('start_time', '<=', $v))
-            ->when(($data['user_id'] ?? null) !== null, fn ($q, $v) => $q->where('user_id', $v))
+            ->when($data['user_id'] ?? null, fn ($q, $userId) => $q->where('user_id', $userId))
             ->when(($data['status'] ?? null) === 'open', fn ($q) => $q->whereNull('end_time'))
             ->when(($data['status'] ?? null) === 'closed', fn ($q) => $q->whereNotNull('end_time'))
             ->latest('start_time');
@@ -107,10 +107,12 @@ class ShiftController extends Controller
     public function closeForm(Request $request): View
     {
         $user = $request->user();
+        $shift = $user->currentShift;
 
         return view('shifts.close', [
             'user' => $user,
-            'shift' => $user->currentShift,
+            'shift' => $shift,
+            'summary' => $shift !== null ? $this->shiftService->closingSummary($shift) : null,
         ]);
     }
 

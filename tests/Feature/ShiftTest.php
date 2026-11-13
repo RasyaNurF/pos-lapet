@@ -84,6 +84,43 @@ class ShiftTest extends TestCase
         $this->assertEquals(133300, $shift->end_cash);
     }
 
+    public function test_close_shift_form_previews_sales_and_expected_cash(): void
+    {
+        $this->actingAs($this->kasir)
+            ->post(route('shifts.open'), ['start_cash' => 50000]);
+
+        $product = Product::factory()->create();
+        $variant = ProductVariant::factory()->create([
+            'product_id' => $product->id,
+            'price' => 10000,
+            'stock' => 10,
+        ]);
+
+        foreach (['cash', 'qris'] as $method) {
+            app(TransactionService::class)->processTransaction(
+                user: $this->kasir->fresh(),
+                cart: [['id' => $variant->id, 'qty' => 1]],
+                customerId: null,
+                paymentMethod: $method,
+                amountTendered: 20000,
+            );
+        }
+
+        $response = $this->actingAs($this->kasir->fresh())
+            ->get(route('shifts.close.form'))
+            ->assertOk()
+            ->assertSee('Penjualan Tunai')
+            ->assertSee('Penjualan Non-tunai')
+            ->assertSee('Kas Seharusnya');
+
+        $this->assertSame([
+            'total_sales' => 22200,
+            'cash_sales' => 11100,
+            'non_cash_sales' => 11100,
+            'expected_cash' => 61100,
+        ], $response->viewData('summary'));
+    }
+
     public function test_pos_redirects_when_shift_not_open(): void
     {
         $this->actingAs($this->kasir)

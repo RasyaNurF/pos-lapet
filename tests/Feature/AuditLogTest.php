@@ -249,6 +249,42 @@ class AuditLogTest extends TestCase
             ->assertSee('Audit Log');
     }
 
+    public function test_audit_log_filters_by_action_user_and_date_range(): void
+    {
+        $today = now()->startOfDay();
+        $matching = AuditLog::create([
+            'user_id' => $this->admin->id,
+            'action' => 'product.create',
+            'ip_address' => '10.0.0.1',
+            'created_at' => $today->copy()->addHour(),
+        ]);
+        AuditLog::create([
+            'user_id' => $this->kasir->id,
+            'action' => 'product.create',
+            'ip_address' => '10.0.0.2',
+            'created_at' => $today->copy()->addHours(2),
+        ]);
+        AuditLog::create([
+            'user_id' => $this->admin->id,
+            'action' => 'product.delete',
+            'ip_address' => '10.0.0.3',
+            'created_at' => $today->copy()->subDay(),
+        ]);
+
+        $logs = $this->actingAs($this->admin)
+            ->get(route('audit-logs.index', [
+                'action' => 'product.create',
+                'user_id' => $this->admin->id,
+                'date_from' => $today->toDateString(),
+                'date_to' => $today->toDateString(),
+            ]))
+            ->assertOk()
+            ->viewData('logs');
+
+        $this->assertSame(1, $logs->total());
+        $this->assertSame($matching->id, $logs->first()->id);
+    }
+
     public function test_kasir_cannot_view_audit_logs(): void
     {
         $this->actingAs($this->kasir)

@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\ShiftService;
 use App\Services\TransactionService;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -35,7 +36,7 @@ class VoidTest extends TestCase
         $this->kasir->assignRole('kasir');
     }
 
-    private function makeTransaction(int $stock = 10, int $qty = 3): Transaction
+    private function makeTransaction(int $stock = 10, int $qty = 3, string $method = 'cash'): Transaction
     {
         $product = Product::factory()->create();
         $variant = ProductVariant::factory()->create([
@@ -48,7 +49,7 @@ class VoidTest extends TestCase
             user: $this->kasir,
             cart: [['id' => $variant->id, 'name' => $variant->display_name, 'price' => 10000, 'qty' => $qty]],
             customerId: null,
-            paymentMethod: 'cash',
+            paymentMethod: $method,
             amountTendered: 100000,
         );
 
@@ -110,5 +111,34 @@ class VoidTest extends TestCase
             'id' => $transaction->id,
             'status' => Transaction::STATUS_VOIDED,
         ]);
+    }
+
+    public function test_voiding_cash_sale_after_shift_close_recalculates_reconciliation(): void
+    {
+        $shifts = app(ShiftService::class);
+        $shift = $shifts->openShift($this->kasir, 50000);
+
+        $cashSale = $this->makeTransaction(qty: 1, method: 'cash');
+        $nonCashSale = $this->makeTransaction(qty: 1, method: 'qris');
+
+        $shifts->closeShift($this->kasir->fresh(), 61100);
+        $closedShift = $shift->fresh();
+        $this->assertSame(61100, $closedShift->expected_cash);
+        $this->assertSame(0, $closedShift->difference);
+        $this->assertSame(22200, $closedShift->total_sales);
+
+        app(TransactionService::class)->voidTransaction($cashSale, $this->admin);
+
+        $closedShift->refresh();
+        $this->assertSame(50000, $closedShift->expected_cash);
+        $this->assertSame(11100, $closedShift->difference);
+        $this->assertSame(11100, $closedShift->total_sales);
+        $this->assertSame(Transaction::STATUS_COMPLETED, $nonCashSale->fresh()->status);
+
+        app(TransactionService::class)->voidTransaction($nonCashSale, $this->admin);
+        $closedShift->refresh();
+        $this->assertSame(50000, $closedShift->expected_cash);
+        $this->assertSame(11100, $closedShift->difference);
+        $this->assertSame(0, $closedShift->total_sales);
     }
 }

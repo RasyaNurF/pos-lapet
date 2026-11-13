@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\ProductVariant;
+use App\Models\Shift;
 use App\Models\SuspendedTransaction;
 use App\Models\Transaction;
 use App\Models\TransactionItem;
@@ -231,8 +232,34 @@ class TransactionService
                 'notes' => $reason ?? $locked->notes,
             ]);
 
-            // Kurangi total sales shift jika shift masih terbuka.
-            $locked->shift?->decrement('total_sales', $locked->total);
+            // Kurangi penjualan shift dan kunci baris agar konsisten dengan
+            // proses tutup shift yang mungkin berjalan bersamaan.
+            $shift = $locked->shift_id !== null
+                ? Shift::query()->whereKey($locked->shift_id)->lockForUpdate()->first()
+                : null;
+
+            if ($shift !== null) {
+                $shift->decrement('total_sales', $locked->total);
+
+                // Bila shift sudah direkonsiliasi, transaksi tunai yang baru
+                // di-void mengubah kas yang seharusnya dan selisih akhirnya.
+                // Pembayaran non-tunai mengurangi total sales saja.
+                if ($shift->end_time !== null && $shift->end_cash !== null) {
+                    $cashSales = (int) TransactionPayment::query()
+                        ->where('method', TransactionPayment::METHOD_CASH)
+                        ->whereHas('transaction', fn ($query) => $query
+                            ->where('shift_id', $shift->id)
+                            ->where('status', Transaction::STATUS_COMPLETED))
+                        ->sum('amount');
+
+                    $expectedCash = (int) $shift->start_cash + $cashSales;
+
+                    $shift->update([
+                        'expected_cash' => $expectedCash,
+                        'difference' => (int) $shift->end_cash - $expectedCash,
+                    ]);
+                }
+            }
 
             $this->audit->log(
                 'transaction.void',
