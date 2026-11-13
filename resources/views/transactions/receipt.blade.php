@@ -1,8 +1,21 @@
 <div class="receipt bg-white text-black p-2 font-mono text-xs" style="width: 80mm;">
+    @php($store = app(\App\Services\SettingService::class)->all())
 
     <div class="text-center mb-2">
-        <div class="font-bold text-sm">{{ config('app.name') }}</div>
-        <div>LA PET GALLERY</div>
+        @if($store['company_logo'] !== '')
+            <img src="{{ asset('storage/'.$store['company_logo']) }}" alt="Logo {{ $store['company_name'] }}"
+                 width="64" height="64" class="mx-auto mb-2"
+                 style="width: 64px; height: 64px; object-fit: contain;">
+        @endif
+        <div class="font-bold text-sm">{{ $store['company_name'] }}</div>
+        @if($store['company_address'] !== '')
+            <div class="whitespace-pre-line">{{ $store['company_address'] }}</div>
+        @endif
+        @foreach(['company_phone', 'company_email', 'company_website'] as $field)
+            @if($store[$field] !== '')
+                <div class="break-words">{{ $store[$field] }}</div>
+            @endif
+        @endforeach
     </div>
 
     <div class="border-t border-dashed border-black my-1"></div>

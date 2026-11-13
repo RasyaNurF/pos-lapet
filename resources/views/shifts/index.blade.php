@@ -134,7 +134,7 @@
                         @if($shift->difference === null)
                             <span class="text-base-content/50">Belum dihitung</span>
                         @elseif($shift->difference === 0)
-                            <span class="font-mono text-success">Rp 0</span>
+                            <span class="font-mono text-success">@money(0)</span>
                         @elseif($shift->difference < 0)
                             <span class="font-mono text-error">Kurang @money(abs($shift->difference))</span>
                         @else

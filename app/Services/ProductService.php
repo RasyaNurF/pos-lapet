@@ -71,7 +71,7 @@ class ProductService
             'base_price' => (int) $data['base_price'],
             'base_cost' => (int) $data['base_cost'],
             'stock_alert' => (int) $data['stock_alert'],
-            'is_active' => (bool) ($data['is_active'] ?? true),
+            'is_active' => (bool) ($data['is_active'] ?? $product->is_active),
         ]);
 
         $changes = $this->audit->changes($product, $original);

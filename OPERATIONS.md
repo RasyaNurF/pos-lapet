@@ -1,5 +1,13 @@
 # OPERATIONS.md — Operational Guard (Tahap 6, Commit 5)
 
+## Konversi mata uang tampilan
+
+- Pilih simbol di **Pengaturan Toko → Lokalisasi**. Pratinjau langsung mengambil kurs; klik **Simpan Pengaturan** untuk menerapkannya ke aplikasi dan struk/PDF.
+- Semua data harga, pajak, diskon, pembayaran, shift, serta ekspor CSV tetap dalam **IDR**. Dropdown mengonversi nominal tampilan, tanpa mengubah harga tersimpan. Input nominal tetap berlabel rupiah.
+- Kurs referensi diambil server dari [Frankfurter v2](https://frankfurter.dev/), pasangan IDR ke mata uang pilihan, tanpa API key. Tanggal kurs ditampilkan; nominal tampilan transaksi lama mengikuti kurs tampilan yang berlaku saat dibuka kembali.
+- Cache kurs segar berlaku satu jam. Saat layanan gagal, kurs terakhir yang tersimpan maksimal tujuh hari dipakai dengan pemberitahuan. Jika belum ada kurs, perubahan ke mata uang tersebut ditolak; halaman yang sudah memakai mata uang asing sementara menampilkan rupiah dengan pemberitahuan.
+- Server memerlukan koneksi HTTPS ke `api.frankfurter.dev`. Verifikasi TLS tetap aktif.
+
 Rekomendasi operasional di luar kode: backup, monitoring, ketersediaan, dan backlog.
 Bagian ini **belum diimplementasi** — butuh akses VPS/infrastruktur, bukan perubahan kode.
 

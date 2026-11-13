@@ -152,9 +152,9 @@ return [
         'currency_symbol' => [
             'group' => 'localisation',
             'label' => 'Simbol Mata Uang',
-            'type' => 'text',
+            'type' => 'currency',
             'default' => 'Rp',
-            'rules' => ['required', 'string', 'max:10'],
+            'rules' => ['required', 'string', 'in:'.implode(',', array_keys(require __DIR__.'/currencies.php'))],
         ],
         'currency_position' => [
             'group' => 'localisation',

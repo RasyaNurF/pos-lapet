@@ -110,6 +110,19 @@ class SettingService
             return;
         }
 
+        // Pastikan simbol baru memiliki kurs sah sebelum pengaturan disimpan.
+        if (isset($rows['currency_symbol'])) {
+            $currency = config('currencies')[$rows['currency_symbol']]['code'];
+            try {
+                app(ExchangeRateService::class)->quote($currency);
+            } catch (\RuntimeException $e) {
+                throw ValidationException::withMessages(['currency_symbol' => $e->getMessage()]);
+            }
+            if ($rows['currency_symbol'] !== $this->get('currency_symbol') && ! isset($rows['currency_decimals'])) {
+                $rows['currency_decimals'] = (string) config('currencies')[$rows['currency_symbol']]['decimals'];
+            }
+        }
+
         DB::transaction(function () use ($rows): void {
             /*
              * Kosong tetap disimpan '' — BUKAN NULL. Kalau NULL, "kosong

@@ -131,7 +131,7 @@ class PosTerminal extends Component
             ->with('product')
             ->find($variantId);
 
-        if ($variant === null || ! $variant->product->is_active) {
+        if ($variant === null || $variant->product?->is_active !== true) {
             $this->dispatch('swal:error', title: 'Produk tidak ditemukan', text: 'Produk tidak aktif atau sudah dihapus.');
 
             return;
@@ -240,9 +240,9 @@ class PosTerminal extends Component
 
     public function updatedDiscount(): void
     {
-        if ($this->discount < 0) {
-            $this->discount = 0;
-        }
+        // Mengosongkan input angka membuat Livewire meng-unset properti int.
+        // Pulihkan menjadi nol sebelum dibaca oleh kalkulasi/checkout.
+        $this->discount = max(0, $this->discount ?? 0);
 
         $this->resetComputedCache();
     }

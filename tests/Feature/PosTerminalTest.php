@@ -172,4 +172,43 @@ class PosTerminalTest extends TestCase
             ->assertSet('discount', 0)
             ->assertSet('customer_id', null);
     }
+
+    public function test_clearing_discount_then_entering_a_new_value_keeps_totals_correct(): void
+    {
+        Livewire::actingAs($this->kasir)
+            ->test(PosTerminal::class)
+            ->call('addToCart', $this->variant->id)
+            ->set('discount', 1000)
+            ->assertSet('total', 10100)
+            ->set('discount', '')
+            ->assertHasNoErrors()
+            ->assertSet('discount', 0)
+            ->assertSet('total', 11100)
+            ->set('discount', '2000')
+            ->assertSet('discount', 2000)
+            ->assertSet('total', 9100)
+            ->call('quickTender', 10000)
+            ->call('checkout')
+            ->assertDispatched('swal:success');
+
+        $this->assertDatabaseHas('transactions', ['discount' => 2000, 'total' => 9100]);
+        $this->assertSame(9, $this->variant->fresh()->stock);
+    }
+
+    public function test_null_discount_can_be_suspended_and_resumed_as_zero(): void
+    {
+        $component = Livewire::actingAs($this->kasir)
+            ->test(PosTerminal::class)
+            ->call('addToCart', $this->variant->id)
+            ->set('discount', null)
+            ->assertHasNoErrors()
+            ->assertSet('discount', 0)
+            ->assertSet('total', 11100)
+            ->call('suspendTransaction')
+            ->assertDispatched('swal:success');
+
+        $hold = SuspendedTransaction::firstOrFail();
+        $this->assertSame(0, $hold->discount);
+        $component->call('resumeTransaction', $hold->id)->assertSet('discount', 0)->assertSet('total', 11100);
+    }
 }

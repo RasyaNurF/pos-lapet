@@ -91,7 +91,7 @@ class ReportController extends Controller
             fwrite($handle, "\xEF\xBB\xBF");
 
             // Header kolom.
-            fputcsv($handle, ['Invoice', 'Tanggal', 'Kasir', 'Pelanggan', 'Subtotal', 'Diskon', 'Pajak', 'Total', 'Status', 'Metode Bayar', 'Item Terjual']);
+            fputcsv($handle, ['Invoice', 'Tanggal', 'Kasir', 'Pelanggan', 'Subtotal (IDR)', 'Diskon (IDR)', 'Pajak (IDR)', 'Total (IDR)', 'Status', 'Metode Bayar', 'Item Terjual']);
 
             Transaction::query()
                 ->with(['user', 'customer', 'items', 'payments'])

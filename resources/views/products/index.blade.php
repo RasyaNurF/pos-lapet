@@ -110,6 +110,7 @@
                         </div>
                     </template>
 
+                    <input type="hidden" name="is_active" value="0">
                     <label class="label cursor-pointer justify-start gap-3 mb-4">
                         <input type="checkbox" name="is_active" value="1" :checked="mode === 'create' || form.is_active" class="checkbox">
                         <span class="label-text">Produk aktif (ditampilkan di POS)</span>

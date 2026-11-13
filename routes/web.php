@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExchangeRateController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
@@ -107,6 +108,9 @@ Route::middleware('auth')->group(function (): void {
         ->name('audit-logs.index');
 
     // Pengaturan toko — admin saja; kasir tidak boleh mengubah PPN/mata uang.
+    Route::get('/settings/exchange-rate', ExchangeRateController::class)
+        ->middleware(['permission:settings.view', 'throttle:30,1'])
+        ->name('settings.exchange-rate');
     Route::get('/settings', [SettingController::class, 'index'])
         ->middleware('permission:settings.view')
         ->name('settings.index');

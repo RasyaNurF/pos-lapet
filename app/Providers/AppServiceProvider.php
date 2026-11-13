@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\ExchangeRateService;
 use App\Services\SettingService;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
@@ -19,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
          * pengaturan di dalam loop.
          */
         $this->app->singleton(SettingService::class, fn (): SettingService => new SettingService);
+        $this->app->scoped(ExchangeRateService::class);
     }
 
     /**

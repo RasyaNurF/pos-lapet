@@ -27,7 +27,7 @@ class UpdateProductRequest extends FormRequest
             'base_price' => ['required', 'numeric', 'min:0'],
             'base_cost' => ['required', 'numeric', 'min:0'],
             'stock_alert' => ['required', 'numeric', 'min:0'],
-            'is_active' => ['nullable', 'boolean'],
+            'is_active' => ['required', 'boolean'],
         ];
     }
 
@@ -47,5 +47,11 @@ class UpdateProductRequest extends FormRequest
             'stock_alert.min' => 'Batas stok minimum tidak boleh negatif.',
             'category_id.exists' => 'Kategori terpilih tidak ditemukan.',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        // Checkbox yang tidak dicentang tidak ikut dikirim oleh browser.
+        $this->mergeIfMissing(['is_active' => false]);
     }
 }

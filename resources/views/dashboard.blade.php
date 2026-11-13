@@ -27,7 +27,7 @@
             <div class="flex items-end gap-2 h-48">
                 @foreach($weeklySales as $day)
                     <div class="flex-1 flex flex-col items-center gap-1">
-                        <div class="text-xs font-mono">{{ $day['omzet'] > 0 ? number_format($day['omzet'] / 1000, 0, ',', '.') . 'K' : '0' }}</div>
+                        <div class="text-xs font-mono">@money($day['omzet'])</div>
                         <div class="w-full bg-primary rounded-t-lg"
                              style="height: {{ max(4, (int) round($day['omzet'] / $maxWeekly * 100)) }}%"></div>
                         <div class="text-xs text-base-content/60">{{ $day['label'] }}</div>

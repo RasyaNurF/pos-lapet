@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use App\Services\ExchangeRateService;
 use App\Services\SettingService;
+use RuntimeException;
 
 /**
  * Format jumlah uang mengikuti pengaturan toko.
@@ -33,6 +35,15 @@ class Money
         // Bisa saja '' (pemisah sengaja dikosongkan) — biarkan apa adanya.
         $thousands = (string) $settings->get('currency_thousands_separator', '.');
         $decimal = (string) $settings->get('currency_decimal_separator', ',');
+
+        $currency = config('currencies')[$symbol]['code'] ?? 'IDR';
+        try {
+            $amount *= app(ExchangeRateService::class)->quote($currency)['rate'];
+        } catch (RuntimeException) {
+            // Tanpa kurs, tampilkan nilai dasar dengan label rupiah yang benar.
+            $symbol = 'Rp';
+            $decimals = 0;
+        }
 
         $number = number_format(
             (float) $amount,

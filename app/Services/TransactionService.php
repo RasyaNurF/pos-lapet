@@ -91,6 +91,10 @@ class TransactionService
                         ->lockForUpdate()
                         ->firstOrFail();
 
+                    if ($variant->product?->is_active !== true) {
+                        throw new RuntimeException('Produk sudah tidak aktif atau dihapus. Hapus produk tersebut dari keranjang sebelum membayar.');
+                    }
+
                     if ($variant->stock < $qty) {
                         throw new RuntimeException("Stok \"{$variant->display_name}\" tidak mencukupi.");
                     }

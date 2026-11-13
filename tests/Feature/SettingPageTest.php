@@ -182,6 +182,13 @@ class SettingPageTest extends TestCase
         $this->assertNotEmpty($path);
         $this->assertStringStartsWith('settings/', $path);
         Storage::disk('public')->assertExists($path);
+
+        // URL mengikuti host dan port request, meskipun APP_URL/disk berbeda.
+        config(['filesystems.disks.public.url' => 'http://wrong-host.test/storage']);
+        $this->get('http://127.0.0.1:8000/settings')
+            ->assertOk()
+            ->assertSee('src="http://127.0.0.1:8000/storage/'.$path.'"', false)
+            ->assertDontSee('wrong-host.test');
     }
 
     public function test_removing_logo_clears_the_setting(): void

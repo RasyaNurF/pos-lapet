@@ -1,4 +1,4 @@
-<div class="flex h-full bg-base-200 overflow-hidden">
+<div wire:poll.15s class="flex h-full bg-base-200 overflow-hidden">
 
     {{-- ============================================================ --}}
     {{-- KIRI (70%): Katalog produk --}}
@@ -221,7 +221,7 @@
 
                 @if($payment_method === 'cash')
                     {{-- Uang diterima + Numpad (khusus tunai) --}}
-                    <label class="block text-sm font-medium mb-1">Uang Diterima</label>
+                    <label class="block text-sm font-medium mb-1">Uang Diterima (Rp / IDR)</label>
                     <input
                         type="text"
                         inputmode="none"
@@ -234,7 +234,7 @@
                     <div class="grid grid-cols-3 gap-2 mb-3">
                         @foreach([10000, 20000, 50000, 100000] as $quick)
                             <button wire:click="quickTender({{ $quick }})" class="btn btn-outline btn-sm min-h-[44px] text-sm col-span-1">
-                                @money($quick)
+                                Rp {{ number_format($quick, 0, ',', '.') }}
                             </button>
                         @endforeach
                         <button wire:click="$set('amount_tendered', {{ $this->total }})" class="btn btn-outline btn-sm min-h-[44px] text-sm col-span-2">

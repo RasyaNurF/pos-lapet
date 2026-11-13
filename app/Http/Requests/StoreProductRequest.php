@@ -26,7 +26,7 @@ class StoreProductRequest extends FormRequest
             'base_price' => ['required', 'numeric', 'min:0'],
             'base_cost' => ['required', 'numeric', 'min:0'],
             'stock_alert' => ['required', 'numeric', 'min:0'],
-            'is_active' => ['nullable', 'boolean'],
+            'is_active' => ['required', 'boolean'],
             'variant_name' => ['nullable', 'string', 'max:64'],
             'variant_price' => ['nullable', 'numeric', 'min:0'],
             'variant_stock' => ['nullable', 'numeric', 'min:0'],
@@ -51,5 +51,10 @@ class StoreProductRequest extends FormRequest
             'variant_price.min' => 'Harga varian tidak boleh negatif.',
             'variant_stock.min' => 'Stok varian tidak boleh negatif.',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->mergeIfMissing(['is_active' => false]);
     }
 }
