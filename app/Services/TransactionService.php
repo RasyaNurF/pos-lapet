@@ -124,7 +124,13 @@ class TransactionService
                 $taxRate = $this->calculator->taxRate();
                 $tax = $this->calculator->taxFor($subtotal);
                 $total = $this->calculator->totalFor($subtotal, $tax, $discount);
-                $pointsEarned = $customer === null ? 0 : intdiv($total, 10000);
+                $pointsPerRupiah = (int) app(SettingService::class)->get('loyalty_points_per_rupiah', 1);
+                $availablePoints = $customer === null ? 0 : 4294967295 - $customer->points;
+                $pointsEarned = $customer === null || $pointsPerRupiah === 0
+                    ? 0
+                    : ($total > intdiv($availablePoints, $pointsPerRupiah)
+                        ? $availablePoints
+                        : $total * $pointsPerRupiah);
 
                 if ($paymentMethod === TransactionPayment::METHOD_CASH && $amountTendered < $total) {
                     throw new RuntimeException('Uang diterima kurang dari total belanja.');

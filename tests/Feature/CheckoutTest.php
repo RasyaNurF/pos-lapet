@@ -164,8 +164,8 @@ class CheckoutTest extends TestCase
             amountTendered: 200000,
         );
 
-        $this->assertSame(11, $transaction->points_earned);
-        $this->assertSame(18, $customer->fresh()->points);
+        $this->assertSame(111000, $transaction->points_earned);
+        $this->assertSame(111007, $customer->fresh()->points);
 
         app(TransactionService::class)->voidTransaction($transaction, $this->kasir);
         $this->assertSame(7, $customer->fresh()->points);

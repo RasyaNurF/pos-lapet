@@ -50,6 +50,7 @@ return [
     'groups' => [
         'information' => 'Informasi Toko',
         'general' => 'Umum',
+        'loyalty' => 'Loyalitas',
         'localisation' => 'Lokalisasi',
     ],
 
@@ -140,6 +141,13 @@ return [
             'type' => 'number',
             'default' => 0.0,
             'rules' => ['required', 'numeric', 'min:0', 'max:100'],
+        ],
+        'loyalty_points_per_rupiah' => [
+            'group' => 'loyalty',
+            'label' => 'Poin per rupiah',
+            'type' => 'number',
+            'default' => 1,
+            'rules' => ['required', 'integer', 'min:0', 'max:1000'],
         ],
 
         /*

@@ -22,6 +22,7 @@ class StoreCustomerRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:32'],
             'email' => ['nullable', 'email', 'max:255'],
+            'points' => ['sometimes', 'required', 'integer', 'min:0', 'max:4294967295'],
         ];
     }
 
@@ -33,6 +34,9 @@ class StoreCustomerRequest extends FormRequest
         return [
             'name.required' => 'Nama pelanggan wajib diisi.',
             'email.email' => 'Format email tidak valid.',
+            'points.integer' => 'Poin harus berupa bilangan bulat.',
+            'points.min' => 'Poin tidak boleh kurang dari 0.',
+            'points.max' => 'Jumlah poin terlalu besar.',
         ];
     }
 }

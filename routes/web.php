@@ -69,6 +69,7 @@ Route::middleware('auth')->group(function (): void {
     });
     Route::post('/customers', [CustomerController::class, 'store'])->middleware('permission:customers.create')->name('customers.store');
     Route::put('/customers/{customer}', [CustomerController::class, 'update'])->middleware('permission:customers.update')->name('customers.update');
+    Route::put('/customers-loyalty-rate', [CustomerController::class, 'updateLoyaltyRate'])->middleware('permission:customers.update')->name('customers.loyalty-rate.update');
     Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->middleware('permission:customers.delete')->name('customers.destroy');
 
     // Data karyawan — admin saja; kasir & manajer tidak punya users.* sama sekali.

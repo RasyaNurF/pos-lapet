@@ -147,7 +147,7 @@
                     <option value="{{ $customer->id }}">{{ $customer->name }} {{ $customer->phone ? "({$customer->phone})" : '' }} · {{ $customer->points }} poin</option>
                 @endforeach
             </select>
-            <div class="text-xs text-base-content/60 mb-2">Pelanggan terdaftar mendapat 1 poin tiap Rp10.000 transaksi.</div>
+            <div class="text-xs text-base-content/60 mb-2">Poin mengikuti rasio loyalitas yang diatur di halaman Pelanggan.</div>
 
             <label class="block text-sm font-medium mb-1">Diskon (Rp)</label>
             <input type="number" wire:model.live="discount" min="0" class="input input-bordered w-full mb-2 h-12 text-right" placeholder="0">
