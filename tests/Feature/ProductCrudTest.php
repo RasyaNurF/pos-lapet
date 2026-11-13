@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -105,5 +106,24 @@ class ProductCrudTest extends TestCase
                 'stock_alert' => 1,
             ])
             ->assertForbidden();
+    }
+
+    public function test_editing_variant_prices_preserves_inactive_status_and_other_products(): void
+    {
+        $product = Product::factory()->create(['is_active' => false]);
+        $variant = ProductVariant::factory()->create(['product_id' => $product->id, 'price' => 10000]);
+        $other = ProductVariant::factory()->create(['price' => 50000]);
+        $this->actingAs($this->admin)->put(route('products.update', $product), [
+            ...$product->only(['sku', 'name', 'category_id', 'base_price', 'base_cost', 'stock_alert']),
+            'is_active' => '0',
+            'variants' => [
+                $variant->id => ['price' => 25000, 'cost' => 12000],
+                $other->id => ['price' => 1, 'cost' => 1],
+            ],
+        ])->assertSessionHasNoErrors();
+        $this->assertFalse($product->fresh()->is_active);
+        $this->assertSame(25000, $variant->fresh()->price);
+        $this->assertSame(12000, $variant->fresh()->cost);
+        $this->assertSame(50000, $other->fresh()->price);
     }
 }

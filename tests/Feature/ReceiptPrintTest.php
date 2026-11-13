@@ -41,6 +41,11 @@ class ReceiptPrintTest extends TestCase
         $this->assertSame(50000, $transaction->fresh()->cash_tendered);
         $this->assertSame(27800, $transaction->fresh()->change_amount);
         $this->assertSame(22200, $transaction->payments->sum('amount'));
+        $payment = $transaction->payments->first();
+        $this->assertSame(50000, $payment->amount_tendered);
+        $this->assertSame(27800, $payment->change_amount);
+        $html = $this->get(route('transactions.receipt', $transaction))->getContent();
+        $this->assertSame(1, substr_count($html, 'Kembalian'));
     }
 
     public function test_receipt_printing_still_requires_print_permission(): void
@@ -134,6 +139,10 @@ class ReceiptPrintTest extends TestCase
         $variant = ProductVariant::factory()->create(['price' => 10000, 'stock' => 5]);
         $sale = app(TransactionService::class)->processTransaction($user, [['id' => $variant->id, 'qty' => 1]], null, 'cash', 50000);
         $sale->update(['cash_tendered' => null, 'change_amount' => null]);
+        // Branch masuk menyimpan tender di payment; data itu tetap terbaca.
+        $this->actingAs($user)->get(route('transactions.receipt', $sale))->assertOk()
+            ->assertSee('Uang diterima')->assertSee('Rp 50.000')->assertSee('Rp 38.900');
+        $sale->payments()->update(['amount_tendered' => null, 'change_amount' => null]);
         $this->actingAs($user)->get(route('transactions.receipt', $sale))->assertOk()
             ->assertSee($sale->invoice_no)->assertDontSee('Tunai Diterima')->assertDontSee('Kembalian');
     }

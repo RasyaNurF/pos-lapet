@@ -47,7 +47,7 @@
                         </div>
 
                         <div class="card-actions justify-end mt-3">
-                            <button @click="mode = 'edit'; form = {{ json_encode($product->only(['id', 'sku', 'name', 'category_id', 'base_price', 'base_cost', 'stock_alert', 'is_active'])) }}; openPanel = true"
+                            <button @click="mode = 'edit'; form = @js($product->only(['id', 'sku', 'name', 'category_id', 'base_price', 'base_cost', 'stock_alert', 'is_active']) + ['variants' => $product->variants->map(fn ($variant) => $variant->only(['id', 'name', 'price', 'cost']))->values()]); openPanel = true"
                                     class="btn btn-sm btn-outline min-h-[44px]">Edit</button>
                             <form method="POST" action="{{ route('products.destroy', $product) }}"
                                   onsubmit="swalConfirm({ title: this.dataset.title, url: this.action }); return false;" data-title="Hapus produk {{ $product->name }}?">
@@ -91,11 +91,29 @@
                         @endforeach
                     </select>
 
-                    <label class="block text-sm font-medium mb-1">Harga Jual (Rp)</label>
+                    <label class="block text-sm font-medium mb-1">Harga Jual Dasar (Rp)</label>
                     <input type="number" name="base_price" :value="form.base_price" min="0" required class="input input-bordered w-full mb-3 h-12 text-right">
+                    <p class="text-xs text-base-content/60 -mt-2 mb-3">Harga dasar untuk produk/varian baru. Atur harga varian yang sudah ada di bawah.</p>
 
                     <label class="block text-sm font-medium mb-1">Harga Modal (Rp)</label>
                     <input type="number" name="base_cost" :value="form.base_cost" min="0" required class="input input-bordered w-full mb-3 h-12 text-right">
+
+                    <template x-if="mode === 'edit' && form.variants?.length">
+                        <div class="border-t border-base-300 pt-3 mb-3">
+                            <h3 class="font-semibold mb-2">Harga Tiap Varian</h3>
+                            <template x-for="variant in form.variants" :key="variant.id">
+                                <div class="rounded-lg border border-base-300 p-3 mb-2">
+                                    <div class="font-medium mb-2" x-text="variant.name"></div>
+                                    <label class="block text-xs mb-1">Harga jual (Rp)</label>
+                                    <input type="number" min="0" required class="input input-bordered w-full h-11 mb-2 text-right"
+                                           :name="'variants[' + variant.id + '][price]'" :value="variant.price">
+                                    <label class="block text-xs mb-1">Harga modal (Rp)</label>
+                                    <input type="number" min="0" required class="input input-bordered w-full h-11 text-right"
+                                           :name="'variants[' + variant.id + '][cost]'" :value="variant.cost">
+                                </div>
+                            </template>
+                        </div>
+                    </template>
 
                     <label class="block text-sm font-medium mb-1">Batas Stok Alert</label>
                     <input type="number" name="stock_alert" :value="form.stock_alert ?? 5" min="0" required class="input input-bordered w-full mb-3 h-12 text-right">

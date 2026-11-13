@@ -62,25 +62,38 @@ class ProductService
      */
     public function update(Product $product, array $data): Product
     {
-        $original = $product->getOriginal();
+        return DB::transaction(function () use ($product, $data): Product {
+            $original = $product->getOriginal();
 
-        $product->update([
-            'sku' => $data['sku'],
-            'name' => $data['name'],
-            'category_id' => $data['category_id'] ?? null,
-            'base_price' => (int) $data['base_price'],
-            'base_cost' => (int) $data['base_cost'],
-            'stock_alert' => (int) $data['stock_alert'],
-            'is_active' => (bool) ($data['is_active'] ?? $product->is_active),
-        ]);
+            $product->update([
+                'sku' => $data['sku'],
+                'name' => $data['name'],
+                'category_id' => $data['category_id'] ?? null,
+                'base_price' => (int) $data['base_price'],
+                'base_cost' => (int) $data['base_cost'],
+                'stock_alert' => (int) $data['stock_alert'],
+                'is_active' => (bool) ($data['is_active'] ?? $product->is_active),
+            ]);
 
-        $changes = $this->audit->changes($product, $original);
+            // Harga POS tersimpan per varian agar ukuran seperti kg dan pcs
+            // dapat memiliki harga yang berbeda.
+            foreach ($data['variants'] ?? [] as $variantId => $variantData) {
+                $product->variants()
+                    ->whereKey($variantId)
+                    ->update([
+                        'price' => (int) $variantData['price'],
+                        'cost' => (int) $variantData['cost'],
+                    ]);
+            }
 
-        if ($changes['old'] !== []) {
-            $this->audit->log('product.update', $product, $changes['old'], $changes['new']);
-        }
+            $changes = $this->audit->changes($product, $original);
 
-        return $product;
+            if ($changes['old'] !== []) {
+                $this->audit->log('product.update', $product, $changes['old'], $changes['new']);
+            }
+
+            return $product;
+        });
     }
 
     /**

@@ -297,15 +297,24 @@
                     <input type="text" wire:model="qris_reference" class="input input-bordered w-full mb-3 h-14 text-lg" placeholder="Scan / masukkan ref...">
                 @endif
 
-                <button
-                    wire:click="checkout"
-                    wire:loading.attr="disabled"
-                    class="w-full bg-success text-success-content rounded-xl font-bold text-2xl py-4 shadow-lg
-                           active:scale-95 transition-transform min-h-[64px]"
-                >
-                    <span wire:loading.remove wire:target="checkout">BAYAR SEKARANG</span>
-                    <span wire:loading wire:target="checkout">Memproses...</span>
-                </button>
+                <div class="mt-auto grid grid-cols-2 gap-2">
+                    <button
+                        wire:click="closePaymentPanel"
+                        wire:loading.attr="disabled"
+                        class="btn btn-outline btn-error min-h-[64px] text-lg font-bold"
+                    >
+                        Batalkan
+                    </button>
+                    <button
+                        wire:click="checkout"
+                        wire:loading.attr="disabled"
+                        class="bg-success text-success-content rounded-xl font-bold text-xl py-4 shadow-lg
+                               active:scale-95 transition-transform min-h-[64px]"
+                    >
+                        <span wire:loading.remove wire:target="checkout">BAYAR</span>
+                        <span wire:loading wire:target="checkout">Memproses...</span>
+                    </button>
+                </div>
             </div>
         </div>
     @endif

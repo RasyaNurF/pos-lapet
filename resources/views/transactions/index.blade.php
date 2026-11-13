@@ -88,5 +88,6 @@
     function hideReceipt() {
         document.getElementById('receipt-modal').style.display = 'none';
     }
+
 </script>
 @endpush

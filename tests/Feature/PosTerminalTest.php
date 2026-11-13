@@ -197,6 +197,19 @@ class PosTerminalTest extends TestCase
             ->assertSet('customer_id', null);
     }
 
+    public function test_cancelling_payment_keeps_cart_and_discount_but_clears_checkout_token(): void
+    {
+        Livewire::actingAs($this->kasir)->test(PosTerminal::class)
+            ->call('addToCart', $this->variant->id)->set('discount', 1000)
+            ->call('openPaymentPanel')->assertSet('showPaymentPanel', true)
+            ->assertSet('checkout_token', fn (string $token): bool => $token !== '')
+            ->call('closePaymentPanel')->assertSet('showPaymentPanel', false)
+            ->assertSet('checkout_token', '')->assertSet('discount', 1000)
+            ->assertSet('cartCount', 1);
+        $this->assertDatabaseCount('transactions', 0);
+        $this->assertSame(10, $this->variant->fresh()->stock);
+    }
+
     public function test_clearing_discount_then_entering_a_new_value_keeps_totals_correct(): void
     {
         Livewire::actingAs($this->kasir)

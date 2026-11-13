@@ -210,6 +210,8 @@ class TransactionService
                         'transaction_id' => $transaction->id,
                         'method' => $paymentMethod,
                         'amount' => $primaryAmount,
+                        'amount_tendered' => $paymentMethod === TransactionPayment::METHOD_CASH ? $cashTendered : $primaryAmount,
+                        'change_amount' => $paymentMethod === TransactionPayment::METHOD_CASH ? $changeAmount : 0,
                         'reference_no' => $paymentMethod === TransactionPayment::METHOD_CASH
                             ? null
                             : (trim($qrisReference) !== '' ? trim($qrisReference) : ($paymentMethod === TransactionPayment::METHOD_QRIS ? 'QRIS-'.Str::upper(Str::random(8)) : null)),
@@ -220,6 +222,8 @@ class TransactionService
                         'transaction_id' => $transaction->id,
                         'method' => $secondPaymentMethod,
                         'amount' => $secondaryAmount,
+                        'amount_tendered' => $secondPaymentMethod === TransactionPayment::METHOD_CASH ? $cashTendered : $secondaryAmount,
+                        'change_amount' => $secondPaymentMethod === TransactionPayment::METHOD_CASH ? $changeAmount : 0,
                         'reference_no' => $secondPaymentMethod === TransactionPayment::METHOD_QRIS
                             ? (trim($qrisReference) !== '' ? trim($qrisReference) : 'QRIS-'.Str::upper(Str::random(8)))
                             : null,
