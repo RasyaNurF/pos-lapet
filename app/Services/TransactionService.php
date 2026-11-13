@@ -150,6 +150,25 @@ class TransactionService
                 if ($splitPrimaryAmount === null && $paymentMethod === TransactionPayment::METHOD_CASH && $amountTendered < $total) {
                     throw new RuntimeException('Uang diterima kurang dari total belanja.');
                 }
+
+                // amount pembayaran tetap nilai yang melunasi tagihan (neto),
+                // bukan uang diserahkan pelanggan yang mungkin perlu dikembalikan.
+                $cashTendered = null;
+                $changeAmount = null;
+                if ($splitPrimaryAmount === null && $paymentMethod === TransactionPayment::METHOD_CASH) {
+                    $cashTendered = $amountTendered;
+                    $changeAmount = $this->calculateChange($amountTendered, $total);
+                } elseif ($splitPrimaryAmount !== null) {
+                    // Input split saat ini adalah alokasi pembayaran pertama;
+                    // kedua alokasi dianggap dibayar pas, bukan uang tender.
+                    if ($paymentMethod === TransactionPayment::METHOD_CASH && $primaryAmount > 0) {
+                        $cashTendered = $primaryAmount;
+                        $changeAmount = 0;
+                    } elseif ($secondPaymentMethod === TransactionPayment::METHOD_CASH && $secondaryAmount > 0) {
+                        $cashTendered = $secondaryAmount;
+                        $changeAmount = 0;
+                    }
+                }
                 $transaction = Transaction::create([
                     'invoice_no' => $this->generateInvoiceNo(),
                     'client_token' => $clientToken,
@@ -163,6 +182,8 @@ class TransactionService
                     // mengubah riwayat struk lama.
                     'tax_rate' => $taxRate,
                     'total' => $total,
+                    'cash_tendered' => $cashTendered,
+                    'change_amount' => $changeAmount,
                     'points_earned' => $pointsEarned,
                     'status' => Transaction::STATUS_COMPLETED,
                 ]);

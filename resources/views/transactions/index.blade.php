@@ -69,7 +69,7 @@
         <div class="relative bg-base-100 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto p-3">
             <div id="receipt-content" class="receipt-content"></div>
             <div class="flex gap-2 mt-2 print:hidden">
-                <button onclick="window.print()" class="btn btn-primary flex-1 min-h-[48px]">🖨 Cetak</button>
+                <button onclick="printReceipt('receipt-content')" class="btn btn-primary flex-1 min-h-[48px]">🖨 Cetak</button>
                 <button onclick="hideReceipt()" class="btn btn-ghost flex-1 min-h-[48px]">Tutup</button>
             </div>
         </div>

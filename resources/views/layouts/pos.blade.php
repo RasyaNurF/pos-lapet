@@ -59,12 +59,13 @@
         <div class="relative bg-base-100 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto p-3">
             <div id="pos-receipt-content"></div>
             <div class="flex gap-2 mt-2">
-                <button onclick="window.print()" class="btn btn-primary flex-1 min-h-[48px]">🖨 Cetak Struk</button>
+                <button onclick="printReceipt('pos-receipt-content')" class="btn btn-primary flex-1 min-h-[48px]">🖨 Cetak Struk</button>
                 <button onclick="hidePosReceipt()" class="btn btn-ghost flex-1 min-h-[48px]">Tutup</button>
             </div>
         </div>
     </div>
 
+    @include('transactions.print-support')
     <script>
         function hidePosReceipt() {
             document.getElementById('pos-receipt-modal').style.display = 'none';

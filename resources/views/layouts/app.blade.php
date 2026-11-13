@@ -143,6 +143,7 @@
             });
         }
     </script>
+    @include('transactions.print-support')
     @stack('scripts')
 </body>
 </html>

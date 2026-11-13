@@ -67,18 +67,15 @@
         @endif
     @endforeach
 
+    @if($transaction->cash_tendered !== null)
+        <div class="border-t border-dashed border-black my-1"></div>
+        <div class="flex justify-between"><span>Tunai Diterima</span><span>@money($transaction->cash_tendered)</span></div>
+        <div class="flex justify-between font-bold"><span>Kembalian</span><span>@money($transaction->change_amount ?? 0)</span></div>
+    @endif
+
     @if($transaction->isVoided())
         <div class="text-center font-bold text-sm mt-2 border border-black p-1">*** VOID ***</div>
     @endif
 
     <div class="text-center mt-3">Terima kasih sudah berbelanja!</div>
 </div>
-
-<style>
-    @media print {
-        @page { size: 80mm auto; margin: 2mm; }
-        body * { visibility: hidden; }
-        .receipt, .receipt * { visibility: visible; }
-        .receipt { position: absolute; left: 0; top: 0; width: 80mm; }
-    }
-</style>
